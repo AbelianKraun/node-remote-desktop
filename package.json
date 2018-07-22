@@ -1,0 +1,21 @@
+{
+  "name": "node-addon-tutorial",
+  "version": "1.0.0",
+  "main": "bindings.js",
+  "scripts": {
+    "build": "node-gyp build",
+    "install": "node-gyp rebuild",
+    "start": "node ./index.js"
+  },
+  "dependencies": {
+    "bmp-js": "^0.1.0",
+    "fs-extra": "^7.0.0",
+    "nan": "^2.7.0",
+    "node-png": "^0.4.3",
+    "performance-node": "^0.2.0",
+    "png-stream": "^1.0.5",
+    "pngjs": "^3.3.3",
+    "stream-to-buffer": "^0.1.0",
+    "websocket": "^1.0.26"
+  }
+}

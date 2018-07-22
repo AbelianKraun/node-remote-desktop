@@ -1,0 +1,50 @@
+<html>
+
+<head>
+    <title>test</title>
+</head>
+
+<body>
+    <canvas width="1920" height="1280"></canvas>
+
+    <script>
+        var client = new WebSocket('ws://localhost:8080/', 'echo-protocol');
+        var canvas = document.getElementsByTagName("canvas")[0];
+        var context = canvas.getContext("2d");
+        var img = null;
+
+        client.onerror = function () {
+            console.log('Connection Error');
+        };
+
+        client.onopen = function () {
+            console.log('WebSocket Client Connected');
+
+            function sendNumber() {
+                if (client.readyState === client.OPEN) {
+                    var number = Math.round(Math.random() * 0xFFFFFF);
+                    client.send(number.toString());
+                }
+            }
+            sendNumber();
+        };
+
+        client.onclose = function () {
+            console.log('echo-protocol Client Closed');
+        };
+
+        client.onmessage = function (e) {
+            console.log(typeof e.data);
+            if (typeof e.data == "object") {
+                if (img)
+                    img.remove();
+
+                img = new Image();
+                img.onload = () => context.drawImage(img, 0, 0);
+                img.src = URL.createObjectURL(e.data);
+            }
+        };
+    </script>
+</body>
+
+</html>
