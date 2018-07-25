@@ -31,7 +31,6 @@ function originIsAllowed(origin) {
 }
 
 wsServer.on('request', function (request) {
-    let interval = null;
 
     if (!originIsAllowed(request.origin)) {
         // Make sure we only accept requests from an allowed origin
@@ -40,16 +39,29 @@ wsServer.on('request', function (request) {
         return;
     }
 
+    var index = clients.size;
     var connection = request.accept('echo-protocol', request.origin);
-    clients.set(connection.origin, connection);
-    console.log(connection);
-    console.log((new Date()) + ' Connection accepted.');
+    clients.set(index, connection);
+    console.log((new Date()) + ' - Connection accepted.');
+
+
+    let clientsList = [];
+
+    for (let [key, client] of clients)
+        clientsList.push(key);
+
+    clientsList = JSON.stringify({ type: "usersList", clients: clientsList });
+    console.log(clientsList);
+
+    for (let [key, client] of clients)
+        if (client != connection)
+            client.sendUTF(clientsList);
 
     connection.on('message', function (message) {
     });
 
     connection.on('close', function (reasonCode, description) {
-        clearInterval(interval);
         console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected.');
+        clients.delete(index);
     });
 });

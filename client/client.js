@@ -1,6 +1,7 @@
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require("path");
 const captureModule = require('./bindings');
+const WebSocketClient = require('websocket').client;
 
 const screenCapturer = new captureModule.Vector();
 let win;
@@ -14,6 +15,45 @@ if (!init) {
     return;
 }
 
+
+var client = new WebSocketClient();
+client.on('connectFailed', function (error) {
+    console.log('Connect Error: ' + error.toString());
+
+    setTimeout(tryConnect, 10000);
+});
+
+client.on('connect', function (connection) {
+    console.log('WebSocket Client Connected');
+    connection.on('error', function (error) {
+        console.log("Connection Error: " + error.toString());
+    });
+    connection.on('close', function () {
+        console.log('echo-protocol Connection Closed');
+        setTimeout(tryConnect, 10000);
+    });
+    connection.on('message', function (message) {
+        if (message.type === 'utf8') {
+            let content = JSON.parse(message.utf8Data);
+            console.log(content);
+            switch (content.type) {
+                case "usersList":
+                    win.webContents.send("refreshUsersList", content.clients);
+                    break;
+            }
+        }
+    });
+});
+
+function tryConnect() {
+    client.connect('ws://localhost:8080/', 'echo-protocol');
+}
+
+ipcMain.on("connectToClient", (e, client) => {
+    console.log("connect", client);
+});
+
+
 function createWindow() {
 
     // Creazione della finestra del browser.
@@ -21,6 +61,9 @@ function createWindow() {
     const startUrl = path.resolve('index.html');
     // e viene caricato il file index.html della nostra app.
     win.loadFile(startUrl)
+
+
+    setTimeout(() => tryConnect(), 1000);
 
     // Open the DevTools.
     //win.webContents.openDevTools()
@@ -45,8 +88,8 @@ app.on('window-all-closed', () => {
     // restano attive finché l'utente non esce espressamente tramite i tasti Cmd + Q
     if (process.platform !== 'darwin') {
         if (screenCapturer)
-        screenCapturer.releaseDevice();
-        
+            screenCapturer.releaseDevice();
+
         app.quit()
     }
 })
@@ -59,5 +102,36 @@ app.on('activate', () => {
     }
 })
 
-  // in questo file possiamo includere il codice specifico necessario 
-  // alla nostra app. Si può anche mettere il codice in file separati e richiederlo qui.
+// in questo file possiamo includere il codice specifico necessario 
+// alla nostra app. Si può anche mettere il codice in file separati e richiederlo qui.
+
+
+
+/* let d = screenCapturer.getNextFrame();
+var bmpData = { data: Buffer.from(new Uint8Array(d.data)), width: d.width, height: d.height };
+var res = new PNG({ width: bmpData, width: bmpData.width, height: bmpData.height });
+res.data = bmpData.data;
+var s = res.pack(); */
+
+
+function exitHandler(options, err) {
+
+    if (screenCapturer)
+        screenCapturer.releaseDevice();
+
+    if (err) console.log(err.stack);
+    if (options.exit) process.exit();
+}
+
+//do something when app is closing
+process.on('exit', exitHandler.bind(null, { cleanup: true }));
+
+//catches ctrl+c event
+process.on('SIGINT', exitHandler.bind(null, { exit: true }));
+
+// catches "kill pid" (for example: nodemon restart)
+process.on('SIGUSR1', exitHandler.bind(null, { exit: true }));
+process.on('SIGUSR2', exitHandler.bind(null, { exit: true }));
+
+//catches uncaught exceptions
+process.on('uncaughtException', exitHandler.bind(null, { exit: true }));

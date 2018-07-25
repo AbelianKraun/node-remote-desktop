@@ -5,7 +5,34 @@
       <title>Hello World!</title>
     </head>
     <body>
+
+      <strong>users</strong>
+      <ul id="users-list">
+
+      </ul>
+
       <canvas id="canvas" width="600" height="600"></canvas>
     </body>
     
+    <script>
+      let ipcRenderer = require('electron').ipcRenderer;
+      let usersList = document.querySelector("#users-list");
+
+      ipcRenderer.on("refreshUsersList", (e, clients) => {
+        usersList.innerHTML = "";
+
+        for(let client of clients) {
+          let row = document.createElement("li");
+          row.innerText = client;
+          usersList.appendChild(row);
+
+          row.addEventListener("click", () => userClick(client))
+        }
+      });
+
+      function userClick(client) {
+        ipcRenderer.send("connectToClient", client);
+      }
+
+    </script>
   </html>
