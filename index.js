@@ -13,18 +13,16 @@ const performance = new Perf();
 const vec1 = new m.Vector(20, 10, 0);
 
 
-var t1 = performance.now();
-let d = vec1.getScreen();
-var bmpData = { data: new Buffer(new Uint8Array(d.data)), width: d.width, height: d.height };
-var t2 = performance.now();
-console.log(t2 - t1);
+console.log("init result", vec1.initDevice());
+let d = vec1.getNextFrame();
+vec1.releaseDevice();
+var bmpData = { data: Buffer.from(new Uint8Array(d.data)), width: d.width, height: d.height };
 /* var rawData = bmp.encode(bmpData);//default no compression,write rawData to .bmp file */
 var res = new PNG({ width: bmpData, width: bmpData.width, height: bmpData.height });
 res.data = bmpData.data;
 var s = res.pack();
 s.pipe(fs.createWriteStream("out.png"));
 var t3 = performance.now();
-console.log(t3 - t2, t3 - t1);
 return;
 
 
@@ -69,7 +67,7 @@ wsServer.on('request', function (request) {
 
     setInterval(() => {
         let d = vec1.getScreen();
-        var bmpData = { data: new Buffer(new Uint8Array(d)), width: 1920, height: 1080 };
+        var bmpData = { data: Buffer.from(new Uint8Array(d)), width: 1920, height: 1080 };
         /* var rawData = bmp.encode(bmpData);//default no compression,write rawData to .bmp file */
         var res = new PNG({ width: bmpData, width: bmpData.width, height: bmpData.height });
         res.data = bmpData.data;

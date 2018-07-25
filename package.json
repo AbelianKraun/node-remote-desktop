@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node-gyp build",
     "install": "node-gyp rebuild",
-    "start": "node ./index.js"
+    "start": "node-gyp build && node ./index.js"
   },
   "dependencies": {
     "bmp-js": "^0.1.0",
