@@ -3,7 +3,7 @@ const m = require('./bindings');
 const fs = require("fs-extra");
 const bmp = require("bmp-js");
 var PNG = require('node-png').PNG;
-var WebSocketServer = require('websocket').server;
+var WebSocketClient = require('websocket').client;
 var http = require('http');
 var streamToBuffer = require('stream-to-buffer')
 
@@ -18,96 +18,61 @@ let init = screenCapturer.initDevice();
 if (!init)
     return;
 
-let i = 0;
-let interval = setInterval(() => {
+var client = new WebSocketClient();
+client.on('connectFailed', function (error) {
+    console.log('Connect Error: ' + error.toString());
 
-    let d = screenCapturer.getNextFrame();
-    var bmpData = { data: Buffer.from(new Uint8Array(d.data)), width: d.width, height: d.height };
-    /* var rawData = bmp.encode(bmpData);//default no compression,write rawData to .bmp file */
-    var res = new PNG({ width: bmpData, width: bmpData.width, height: bmpData.height });
-    res.data = bmpData.data;
-    var s = res.pack();
-    s.pipe(fs.createWriteStream("out" + i + ".png"));
-    var t3 = performance.now();
-
-    i++;
-
-    if (i > 5) {
-
-        screenCapturer.releaseDevice();
-        clearInterval(interval);
-    }
-}, 1000);
-
-
-var server = http.createServer(function (request, response) {
-    console.log((new Date()) + ' Received request for ' + request.url);
-    response.writeHead(404);
-    response.end();
-});
-server.listen(8080, function () {
-    console.log((new Date()) + ' Server is listening on port 8080');
+    setTimeout(tryConnect, 10000);
 });
 
-wsServer = new WebSocketServer({
-    httpServer: server,
-    // You should not use autoAcceptConnections for production
-    // applications, as it defeats all standard cross-origin protection
-    // facilities built into the protocol and the browser.  You should
-    // *always* verify the connection's origin and decide whether or not
-    // to accept it.
-    autoAcceptConnections: false
-});
-
-function originIsAllowed(origin) {
-    // put logic here to detect whether the specified origin is allowed.
-    return true;
-}
-
-wsServer.on('request', function (request) {
-    let interval = null;
-
-    if (!originIsAllowed(request.origin)) {
-        // Make sure we only accept requests from an allowed origin
-        request.reject();
-        console.log((new Date()) + ' Connection from origin ' + request.origin + ' rejected.');
-        return;
-    }
-
-    var connection = request.accept('echo-protocol', request.origin);
-    console.log((new Date()) + ' Connection accepted.');
-
-
-
-    setInterval(() => {
-        let d = screenCapturer.getScreen();
-        var bmpData = { data: Buffer.from(new Uint8Array(d)), width: 1920, height: 1080 };
-        /* var rawData = bmp.encode(bmpData);//default no compression,write rawData to .bmp file */
-        var res = new PNG({ width: bmpData, width: bmpData.width, height: bmpData.height });
-        res.data = bmpData.data;
-        var s = res.pack();
-
-        var bufs = [];
-        s.on('data', function (d) { bufs.push(d); });
-        s.on('end', function () {
-            var buf = Buffer.concat(bufs);
-            connection.sendBytes(Buffer.concat(bufs));
-        });
-
-    }, 1000)
-
+client.on('connect', function (connection) {
+    console.log('WebSocket Client Connected');
+    connection.on('error', function (error) {
+        console.log("Connection Error: " + error.toString());
+    });
+    connection.on('close', function () {
+        console.log('echo-protocol Connection Closed');
+        setTimeout(tryConnect, 10000);
+    });
     connection.on('message', function (message) {
         if (message.type === 'utf8') {
-            console.log('Received Message: ' + message.utf8Data);
-            connection.sendUTF(message.utf8Data);
+            console.log("Received: '" + message.utf8Data + "'");
         }
-        else if (message.type === 'binary') {
-            console.log('Received Binary Message of ' + message.binaryData.length + ' bytes');
-            connection.sendBytes(message.binaryData);
-        }
-    });
-    connection.on('close', function (reasonCode, description) {
-        clearInterval(interval);
-        console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected.');
     });
 });
+
+function tryConnect() {
+    client.connect('ws://localhost:8080/', 'echo-protocol');
+}
+
+tryConnect();
+
+
+/* let d = screenCapturer.getNextFrame();
+var bmpData = { data: Buffer.from(new Uint8Array(d.data)), width: d.width, height: d.height };
+var res = new PNG({ width: bmpData, width: bmpData.width, height: bmpData.height });
+res.data = bmpData.data;
+var s = res.pack(); */
+
+
+function exitHandler(options, err) {
+
+    if (screenCapturer)
+        screenCapturer.releaseDevice();
+
+    if (err) console.log(err.stack);
+    if (options.exit) process.exit();
+}
+
+//do something when app is closing
+process.on('exit', exitHandler.bind(null, { cleanup: true }));
+
+//catches ctrl+c event
+process.on('SIGINT', exitHandler.bind(null, { exit: true }));
+
+// catches "kill pid" (for example: nodemon restart)
+process.on('SIGUSR1', exitHandler.bind(null, { exit: true }));
+process.on('SIGUSR2', exitHandler.bind(null, { exit: true }));
+
+//catches uncaught exceptions
+process.on('uncaughtException', exitHandler.bind(null, { exit: true }));
