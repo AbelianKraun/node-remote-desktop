@@ -71,41 +71,38 @@ NAN_METHOD(Vector::InitDevice)
 	D3DLOCKED_RECT rc;
 	HRESULT hr = S_OK;
 	Vector *self = Nan::ObjectWrap::Unwrap<Vector>(info.This());
-	 srand (time(NULL));
-	self->test = rand();
-	std::cout << self->test;
+
 	int adapter = 0;
+	try
+	{
+		// init D3D and get screen size
+		self->d3d = Direct3DCreate9(D3D_SDK_VERSION);
+		self->d3d->GetAdapterDisplayMode(adapter, &(self->mode));
 
-	// init D3D and get screen size
-	self->d3d = Direct3DCreate9(D3D_SDK_VERSION);
-	HRCHECK(self->d3d->GetAdapterDisplayMode(adapter, &(self->mode)));
+		self->parameters.Windowed = TRUE;
+		self->parameters.BackBufferCount = 1;
+		self->parameters.BackBufferHeight = self->mode.Height;
+		self->parameters.BackBufferWidth = self->mode.Width;
+		self->parameters.SwapEffect = D3DSWAPEFFECT_DISCARD;
+		self->parameters.hDeviceWindow = NULL;
 
-	self->parameters.Windowed = TRUE;
-	self->parameters.BackBufferCount = 1;
-	self->parameters.BackBufferHeight = self->mode.Height;
-	self->parameters.BackBufferWidth = self->mode.Width;
-	self->parameters.SwapEffect = D3DSWAPEFFECT_DISCARD;
-	self->parameters.hDeviceWindow = NULL;
+		// create device & capture surface
+		self->d3d->CreateDevice(adapter, D3DDEVTYPE_HAL, NULL, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &(self->parameters), &(self->device));
+		self->device->CreateOffscreenPlainSurface(self->mode.Width, self->mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &(self->surface), nullptr);
 
-	// create device & capture surface
-	HRCHECK(self->d3d->CreateDevice(adapter, D3DDEVTYPE_HAL, NULL, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &(self->parameters), &(self->device)));
-	HRCHECK(self->device->CreateOffscreenPlainSurface(self->mode.Width, self->mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &(self->surface), nullptr));
-	std::cout << &(self->d3d) << std::endl;	
-	std::cout << &(self->device) << std::endl;
-	std::cout << &(self->surface) << std::endl;
-	std::cout << self->mode.Width << std::endl;
-
-	// compute the required buffer size
-	HRCHECK(self->surface->LockRect(&rc, NULL, 0));
-	self->pitch = rc.Pitch;
-	HRCHECK(self->surface->UnlockRect());
-	info.GetReturnValue().Set(Nan::New(true));
-
-cleanup:
-	RELEASE(self->surface);
-	RELEASE(self->device);
-	RELEASE(self->d3d);
-	info.GetReturnValue().Set(Nan::New(false));
+		// compute the required buffer size
+		self->surface->LockRect(&rc, NULL, 0);
+		self->pitch = rc.Pitch;
+		self->surface->UnlockRect();
+		info.GetReturnValue().Set(Nan::New(true));
+	}
+	catch (...)
+	{
+		std::cout << "Init device fail";
+		RELEASE(self->surface);
+		RELEASE(self->device);
+		RELEASE(self->d3d);
+	}
 }
 
 NAN_METHOD(Vector::GetNextFrame)
@@ -119,22 +116,17 @@ NAN_METHOD(Vector::GetNextFrame)
 	// unwrap this Vector
 	Vector *self = Nan::ObjectWrap::Unwrap<Vector>(info.This());
 
-		std::cout << self->test;
-	if (self->device == nullptr)
-		std::cout << "device null";
-	if (self->surface == nullptr)
-		std::cout << "surface null";
 	// copy data  into our buffers
-	HRCHECK(self->device->GetFrontBufferData(0, self->surface));
+	self->device->GetFrontBufferData(0, self->surface);
 
-	HRCHECK(self->surface->LockRect(&rc, NULL, 0));
+	self->surface->LockRect(&rc, NULL, 0);
 
 	// allocate screenshots buffers
 	bytes = new BYTE[rc.Pitch * self->mode.Height];
 	swappedBytes = new BYTE[rc.Pitch * self->mode.Height];
 
 	CopyMemory(bytes, rc.pBits, rc.Pitch * self->mode.Height);
-	HRCHECK(self->surface->UnlockRect());
+	self->surface->UnlockRect();
 
 	// TO BGRA
 
@@ -170,16 +162,13 @@ NAN_METHOD(Vector::GetNextFrame)
 	for (int i = 0; i < ret.length; i++)
 		Nan::Set(array, i, Nan::New(ret.buf[i]));
 
+	delete[] ret.buf; // Clean buffer
 	frame->Set(Nan::New("data").ToLocalChecked(), array);
 	frame->Set(Nan::New("left").ToLocalChecked(), Nan::New(ret.left));
 	frame->Set(Nan::New("top").ToLocalChecked(), Nan::New(ret.top));
 	frame->Set(Nan::New("width").ToLocalChecked(), Nan::New(ret.width));
 	frame->Set(Nan::New("height").ToLocalChecked(), Nan::New(ret.height));
 	info.GetReturnValue().Set(frame);
-
-cleanup:
-	delete[] ret.buf; // Clean buffer
-	info.GetReturnValue().Set(Nan::New(false));
 }
 
 NAN_METHOD(Vector::ReleaseDevice)

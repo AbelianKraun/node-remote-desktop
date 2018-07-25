@@ -10,20 +10,34 @@ var streamToBuffer = require('stream-to-buffer')
 const Perf = require('performance-node');
 const performance = new Perf();
 
-const vec1 = new m.Vector(20, 10, 0);
+const screenCapturer = new m.Vector(20, 10, 0);
 
 
-console.log("init result", vec1.initDevice());
-let d = vec1.getNextFrame();
-vec1.releaseDevice();
-var bmpData = { data: Buffer.from(new Uint8Array(d.data)), width: d.width, height: d.height };
-/* var rawData = bmp.encode(bmpData);//default no compression,write rawData to .bmp file */
-var res = new PNG({ width: bmpData, width: bmpData.width, height: bmpData.height });
-res.data = bmpData.data;
-var s = res.pack();
-s.pipe(fs.createWriteStream("out.png"));
-var t3 = performance.now();
-return;
+let init = screenCapturer.initDevice();
+
+if (!init)
+    return;
+
+let i = 0;
+let interval = setInterval(() => {
+
+    let d = screenCapturer.getNextFrame();
+    var bmpData = { data: Buffer.from(new Uint8Array(d.data)), width: d.width, height: d.height };
+    /* var rawData = bmp.encode(bmpData);//default no compression,write rawData to .bmp file */
+    var res = new PNG({ width: bmpData, width: bmpData.width, height: bmpData.height });
+    res.data = bmpData.data;
+    var s = res.pack();
+    s.pipe(fs.createWriteStream("out" + i + ".png"));
+    var t3 = performance.now();
+
+    i++;
+
+    if (i > 5) {
+
+        screenCapturer.releaseDevice();
+        clearInterval(interval);
+    }
+}, 1000);
 
 
 var server = http.createServer(function (request, response) {
@@ -66,7 +80,7 @@ wsServer.on('request', function (request) {
 
 
     setInterval(() => {
-        let d = vec1.getScreen();
+        let d = screenCapturer.getScreen();
         var bmpData = { data: Buffer.from(new Uint8Array(d)), width: 1920, height: 1080 };
         /* var rawData = bmp.encode(bmpData);//default no compression,write rawData to .bmp file */
         var res = new PNG({ width: bmpData, width: bmpData.width, height: bmpData.height });
@@ -74,10 +88,10 @@ wsServer.on('request', function (request) {
         var s = res.pack();
 
         var bufs = [];
-        s.on('data', function(d){ bufs.push(d); });
-        s.on('end', function(){
-          var buf = Buffer.concat(bufs);
-          connection.sendBytes(Buffer.concat(bufs));
+        s.on('data', function (d) { bufs.push(d); });
+        s.on('end', function () {
+            var buf = Buffer.concat(bufs);
+            connection.sendBytes(Buffer.concat(bufs));
         });
 
     }, 1000)
