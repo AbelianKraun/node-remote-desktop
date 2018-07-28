@@ -119,6 +119,7 @@ struct EncodeParams
 
 NAN_METHOD(Vector::GetNextFrame)
 {
+	std::cout << "Getting screen" << std::endl;
 	D3DLOCKED_RECT rc;
 	HRESULT hr = S_OK;
 	LPBYTE bytes = nullptr;
@@ -129,7 +130,7 @@ NAN_METHOD(Vector::GetNextFrame)
 
 	for (int i = 0; i < self->cache.size(); i++)
 	{
-		Cache* item = self->cache.at(i);
+		Cache *item = self->cache.at(i);
 		if (item->x == x && item->y == y)
 		{
 			previous = item;
@@ -162,6 +163,7 @@ NAN_METHOD(Vector::GetNextFrame)
 	// starting the async worker
 	Nan::AsyncQueueWorker(new MyAsyncWorker(bytes, previous, length, self->mode.Width, self->mode.Height, x, y, width, height,
 											new Nan::Callback(info[0].As<v8::Function>())));
+
 
 	x += width;
 

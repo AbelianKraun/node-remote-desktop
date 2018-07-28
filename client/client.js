@@ -56,12 +56,11 @@ client.on('connect', function (newConnection) {
                     currentTarget = content.from;
                     mustSendNextFrame = true;
                     sendMessage({ type: "acceptConnection", from: content.from, width: screenCapturer.width, height: screenCapturer.height });
-                    //sendScreen(content.from);
-                    setInterval(() => screenCapturer.getNextFrame(() => {return}), 5000);
+                    sendScreen(content.from);
                     break;
                 case "connectionAccepted":
                     currentTarget = content.from;
-                    win.webContents.send("setFrameDimension", {width: content.width, height: content.height});
+                    win.webContents.send("setFrameDimension", { width: content.width, height: content.height });
                     break;
                 case "nextFrameData":
                     nextFrameData.x = content.x;
@@ -93,7 +92,6 @@ function sendMessage(obj) {
 }
 
 function sendScreen() {
-
     if (mustSendNextFrame) {
         let dirties = cache.filter(c => c.isDirty).sort(x => x.updated.getTime());
         let d = dirties.length > 0 ? dirties[0] : null;
@@ -102,7 +100,7 @@ function sendScreen() {
             d.isDirty = false;
             console.log("Sending frame: ", d.x, d.y, d.width, d.height, d.data.length);
             sendMessage({ type: "nextFrameData", to: currentTarget, x: d.x, y: d.y, w: d.width, h: d.height });
-            connection.sendBytes(Buffer.from(new Uint8Array(d.data)));
+            connection.sendBytes(Buffer.from(d.data));
             mustSendNextFrame = false;
         }
     }
@@ -116,12 +114,19 @@ function sendScreen() {
                 cache.push(previous);
             }
 
+            if (previous.data) {
+                delete previous.data;
+            }
+
+            if (previous.updated)
+                delete previous.updated;
+
             previous.data = d.data;
             previous.updated = new Date();
             previous.isDirty = true;
         }
 
-        setTimeout(sendScreen,1);
+        setTimeout(sendScreen, 0);
     });
 
 }

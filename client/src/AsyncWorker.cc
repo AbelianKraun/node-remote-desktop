@@ -67,8 +67,10 @@ void MyAsyncWorker::Execute()
 	{
 		unsigned error = lodepng::encode(*this->encodedBytes, *vecBytes, this->width, this->height);
 
-		if (this->cache->data != nullptr)
+		if (this->cache->data != nullptr) {
+			std::cout << "Clearing old cache" << std::endl;
 			delete this->cache->data;
+		}
 
 		this->cache->data = vecBytes;
 	} else {

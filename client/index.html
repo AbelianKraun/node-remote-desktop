@@ -21,6 +21,14 @@
   let usersList = document.querySelector("#users-list");
   let canvas = document.querySelector("#canvas");
   let ctx = canvas.getContext("2d");
+  let nextFrameData = null;
+
+  let img = new Image();
+  img.onload = function onLoad(e) {
+    console.log("onload", nextFrameData);
+
+    ctx.drawImage(img, nextFrameData.x, nextFrameData.y, nextFrameData.width, nextFrameData.height);
+  };
 
   ipcRenderer.on("refreshUsersList", (e, clients) => {
     usersList.innerHTML = "";
@@ -35,14 +43,12 @@
   });
 
   ipcRenderer.on("updateScreen", (e, params) => {
-    let buffer = params.data;
-    let img = new Image();
-    img.onload = () => ctx.drawImage(img, params.frameData.x, params.frameData.y, params.frameData.width, params.frameData.height);
-    var url = "data:image/png;base64," + buffer.toString('base64');
-    img.src = url;
+    nextFrameData = { x: params.frameData.x, y: params.frameData.y, width: params.frameData.width, height: params.frameData.height };
+    img.src = "data:image/png;base64," + params.data.toString('base64');
 
+    delete params.data;
+    delete params;
   });
-
 
   ipcRenderer.on("setFrameDimension", (e, params) => {
     canvas.width = params.width;
