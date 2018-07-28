@@ -40,6 +40,14 @@
         "xmemory0": "cpp",
         "xstddef": "cpp",
         "xtr1common": "cpp",
-        "xutility": "cpp"
+        "xutility": "cpp",
+        "thread": "cpp",
+        "chrono": "cpp",
+        "functional": "cpp",
+        "list": "cpp",
+        "ratio": "cpp",
+        "xthread": "cpp",
+        "unordered_map": "cpp",
+        "xhash": "cpp"
     }
 }

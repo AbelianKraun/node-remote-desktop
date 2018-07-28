@@ -54,10 +54,34 @@ wsServer.on('request', function (request) {
     console.log(clientsList);
 
     for (let [key, client] of clients)
-        if (client != connection)
-            client.sendUTF(clientsList);
+        client.sendUTF(clientsList);
 
     connection.on('message', function (message) {
+        if (message.type === 'utf8') {
+            console.log(message.utf8Data);
+
+            let content = JSON.parse(message.utf8Data);
+
+            switch (content.type) {
+                case "connect":
+                    clients.get(content.client).sendUTF(JSON.stringify({ type: "connectionRequest", from: index }));
+                    break;
+                case "acceptConnection":
+                    clients.get(content.from).sendUTF(JSON.stringify({ type: "connectionAccepted", from: index, width: content.width, height: content.height }));
+                    connection.target = content.from;
+                    break;
+                case "frameReceived":
+                    clients.get(content.from).sendUTF(JSON.stringify({ type: "frameReceived", from: index }));
+                    break;
+                case "nextFrameData":
+                    clients.get(content.to).sendUTF(JSON.stringify(content));
+                    break;
+            }
+        } else if (message.type === "binary") {
+            if (connection.target != undefined)
+                clients.get(connection.target).sendBytes(message.binaryData);
+        }
+
     });
 
     connection.on('close', function (reasonCode, description) {

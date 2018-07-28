@@ -7,7 +7,9 @@
     ],
     "sources": [
       "src/index.cc",
-      "src/Vector.cc"
+      "src/lodepng.cpp",
+      "src/AsyncWorker.cc",
+      "src/Vector.cc",
     ]
   }]
 }

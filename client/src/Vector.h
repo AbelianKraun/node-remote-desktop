@@ -11,6 +11,24 @@
 
 #pragma comment(lib, "d3d9.lib") // link to DirectX 9 library
 
+struct Cache {
+  int x;
+  int y;
+  std::vector<unsigned char>* data = nullptr;
+};
+
+struct CapturedFrameResult
+{
+  public:
+	std::vector<unsigned char>* buf;
+	int length;
+	int left;
+	int top;
+	int width;
+	int height;
+};
+
+
 class Vector : public Nan::ObjectWrap
 {
 public:
@@ -21,8 +39,7 @@ public:
   D3DPRESENT_PARAMETERS parameters = {0};
 	D3DDISPLAYMODE mode;
 	UINT pitch;
-
-  int test = 0;
+  std::vector<Cache*> cache;
 
   static NAN_MODULE_INIT(Init);
   static NAN_METHOD(New);
@@ -34,15 +51,4 @@ public:
   static NAN_SETTER(HandleSetters);
 
   static Nan::Persistent<v8::FunctionTemplate> constructor;
-};
-
-struct CapturedFrameResult
-{
-  public:
-	BYTE *buf;
-	int length;
-	int left;
-	int top;
-	int width;
-	int height;
 };

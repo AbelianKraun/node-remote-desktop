@@ -1,38 +1,60 @@
 <!DOCTYPE html>
-  <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>Hello World!</title>
-    </head>
-    <body>
+<html>
 
-      <strong>users</strong>
-      <ul id="users-list">
+<head>
+  <meta charset="UTF-8">
+  <title>Hello World!</title>
+</head>
 
-      </ul>
+<body>
 
-      <canvas id="canvas" width="600" height="600"></canvas>
-    </body>
-    
-    <script>
-      let ipcRenderer = require('electron').ipcRenderer;
-      let usersList = document.querySelector("#users-list");
+  <strong>users</strong>
+  <ul id="users-list">
 
-      ipcRenderer.on("refreshUsersList", (e, clients) => {
-        usersList.innerHTML = "";
+  </ul>
 
-        for(let client of clients) {
-          let row = document.createElement("li");
-          row.innerText = client;
-          usersList.appendChild(row);
+  <canvas id="canvas" width="1366" height="768"></canvas>
+</body>
 
-          row.addEventListener("click", () => userClick(client))
-        }
-      });
+<script>
+  let ipcRenderer = require('electron').ipcRenderer;
+  let usersList = document.querySelector("#users-list");
+  let canvas = document.querySelector("#canvas");
+  let ctx = canvas.getContext("2d");
 
-      function userClick(client) {
-        ipcRenderer.send("connectToClient", client);
-      }
+  ipcRenderer.on("refreshUsersList", (e, clients) => {
+    usersList.innerHTML = "";
 
-    </script>
-  </html>
+    for (let client of clients) {
+      let row = document.createElement("li");
+      row.innerText = client;
+      usersList.appendChild(row);
+
+      row.addEventListener("click", () => userClick(client))
+    }
+  });
+
+  ipcRenderer.on("updateScreen", (e, params) => {
+    let buffer = params.data;
+    let img = new Image();
+    img.onload = () => ctx.drawImage(img, params.frameData.x, params.frameData.y, params.frameData.width, params.frameData.height);
+    var url = "data:image/png;base64," + buffer.toString('base64');
+    img.src = url;
+
+  });
+
+
+  ipcRenderer.on("setFrameDimension", (e, params) => {
+    canvas.width = params.width;
+    canvas.height = params.height;
+    canvas.style.width = params.width + "px";
+    canvas.style.height = params.height + "px";
+  })
+
+  function userClick(client) {
+    ipcRenderer.send("connectToClient", client);
+  }
+
+</script>
+
+</html>

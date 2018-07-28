@@ -1,4 +1,5 @@
 #include "Vector.h"
+#include "AsyncWorker.h"
 
 #define WIDEN2(x) L##x
 #define WIDEN(x) WIDEN2(x)
@@ -22,6 +23,7 @@
 	}
 
 Nan::Persistent<v8::FunctionTemplate> Vector::constructor;
+void encodeTwoSteps(std::vector<unsigned char> &image, unsigned width, unsigned height, std::vector<unsigned char> &out);
 
 NAN_MODULE_INIT(Vector::Init)
 {
@@ -31,10 +33,8 @@ NAN_MODULE_INIT(Vector::Init)
 	ctor->SetClassName(Nan::New("Vector").ToLocalChecked());
 
 	// link our getters and setter to the object property
-	/* 	Nan::SetAccessor(ctor->InstanceTemplate(), Nan::New("x").ToLocalChecked(), Vector::HandleGetters, Vector::HandleSetters);
-	Nan::SetAccessor(ctor->InstanceTemplate(), Nan::New("y").ToLocalChecked(), Vector::HandleGetters, Vector::HandleSetters);
-	Nan::SetAccessor(ctor->InstanceTemplate(), Nan::New("z").ToLocalChecked(), Vector::HandleGetters, Vector::HandleSetters);
- */
+	Nan::SetAccessor(ctor->InstanceTemplate(), Nan::New("width").ToLocalChecked(), Vector::HandleGetters, Vector::HandleSetters);
+	Nan::SetAccessor(ctor->InstanceTemplate(), Nan::New("height").ToLocalChecked(), Vector::HandleGetters, Vector::HandleSetters);
 
 	// Methods
 	Nan::SetPrototypeMethod(ctor, "initDevice", InitDevice);
@@ -105,70 +105,74 @@ NAN_METHOD(Vector::InitDevice)
 	}
 }
 
+int x = 0;
+int y = 0;
+
+struct EncodeParams
+{
+	int width;
+	int height;
+	int length;
+	LPBYTE bytes;
+	std::vector<unsigned char> *out;
+};
+
 NAN_METHOD(Vector::GetNextFrame)
 {
-	CapturedFrameResult ret = {0};
 	D3DLOCKED_RECT rc;
 	HRESULT hr = S_OK;
 	LPBYTE bytes = nullptr;
-	LPBYTE swappedBytes = nullptr;
+	Cache *previous = nullptr;
 
 	// unwrap this Vector
 	Vector *self = Nan::ObjectWrap::Unwrap<Vector>(info.This());
+
+	for (int i = 0; i < self->cache.size(); i++)
+	{
+		Cache* item = self->cache.at(i);
+		if (item->x == x && item->y == y)
+		{
+			previous = item;
+		}
+	}
+
+	if (previous == nullptr)
+	{
+		previous = new Cache();
+		previous->x = x;
+		previous->y = y;
+		self->cache.push_back(previous);
+	}
+
+	int width = min(self->mode.Width - x, 400);
+	int height = min(self->mode.Height - y, 400);
+	int length;
 
 	// copy data  into our buffers
 	self->device->GetFrontBufferData(0, self->surface);
 
 	self->surface->LockRect(&rc, NULL, 0);
-
+	length = rc.Pitch * self->mode.Height;
 	// allocate screenshots buffers
-	bytes = new BYTE[rc.Pitch * self->mode.Height];
-	swappedBytes = new BYTE[rc.Pitch * self->mode.Height];
+	bytes = new BYTE[length];
+	CopyMemory(bytes, rc.pBits, length);
 
-	CopyMemory(bytes, rc.pBits, rc.Pitch * self->mode.Height);
 	self->surface->UnlockRect();
 
-	// TO BGRA
+	// starting the async worker
+	Nan::AsyncQueueWorker(new MyAsyncWorker(bytes, previous, length, self->mode.Width, self->mode.Height, x, y, width, height,
+											new Nan::Callback(info[0].As<v8::Function>())));
 
-	for (unsigned int i = 0; i < rc.Pitch * self->mode.Height; i += 4)
+	x += width;
+
+	if (x >= self->mode.Width)
 	{
-		char b = bytes[i];
-		char g = bytes[i + 1];
-		char r = bytes[i + 2];
-		char a = bytes[i + 3];
-
-		swappedBytes[i] = r;
-		swappedBytes[i + 1] = g;
-		swappedBytes[i + 2] = b;
-		swappedBytes[i + 3] = a;
+		x = 0;
+		y += height;
 	}
 
-	delete[] bytes;
-
-	ret.buf = swappedBytes;
-	ret.length = rc.Pitch * self->mode.Height;
-	ret.left = 0;
-	ret.top = 0;
-	ret.width = self->mode.Width;
-	ret.height = self->mode.Height;
-
-	//CapturedFrameResult ret = CaptureScreen("./test.png");
-	//BYTE *bytes = ret.buf;
-	// create a new JS instance from arguments
-	v8::Local<v8::Object> frame = Nan::New<v8::Object>();
-	v8::Local<v8::Array> array = Nan::New<v8::Array>(ret.length);
-
-	// Build JS array
-	for (int i = 0; i < ret.length; i++)
-		Nan::Set(array, i, Nan::New(ret.buf[i]));
-
-	delete[] ret.buf; // Clean buffer
-	frame->Set(Nan::New("data").ToLocalChecked(), array);
-	frame->Set(Nan::New("left").ToLocalChecked(), Nan::New(ret.left));
-	frame->Set(Nan::New("top").ToLocalChecked(), Nan::New(ret.top));
-	frame->Set(Nan::New("width").ToLocalChecked(), Nan::New(ret.width));
-	frame->Set(Nan::New("height").ToLocalChecked(), Nan::New(ret.height));
-	info.GetReturnValue().Set(frame);
+	if (y >= self->mode.Height)
+		y = 0;
 }
 
 NAN_METHOD(Vector::ReleaseDevice)
@@ -187,7 +191,13 @@ NAN_GETTER(Vector::HandleGetters)
 	Vector *self = Nan::ObjectWrap::Unwrap<Vector>(info.This());
 
 	std::string propertyName = std::string(*Nan::Utf8String(property));
-	info.GetReturnValue().Set(Nan::Undefined());
+
+	if (propertyName == "width")
+		info.GetReturnValue().Set(self->mode.Width);
+	else if (propertyName == "height")
+		info.GetReturnValue().Set(self->mode.Height);
+	else
+		info.GetReturnValue().Set(Nan::Undefined());
 }
 
 NAN_SETTER(Vector::HandleSetters)
@@ -214,86 +224,4 @@ BOOL CALLBACK MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMoni
 
 	a++;
 	return true;
-}
-
-CapturedFrameResult CaptureScreen(const char *filename)
-{
-	HDC hDesktopDC = CreateDC("DISPLAY", 0, 0, 0);
-	HDC hdc = GetDC(NULL);
-	EnumDisplayMonitors(hdc, NULL, &MonitorEnumProc, NULL);
-	ReleaseDC(NULL, hdc);
-
-	int nScreenWidth = 250;  //mi[1].rcMonitor.right;
-	int nScreenHeight = 250; //mi[0].rcMonitor.bottom;
-	HWND hDesktopWnd = GetDesktopWindow();
-
-	HDC hCaptureDC = CreateCompatibleDC(hDesktopDC);
-	HBITMAP hCaptureBitmap = CreateCompatibleBitmap(hDesktopDC, nScreenWidth, nScreenHeight);
-	SelectObject(hCaptureDC, hCaptureBitmap);
-
-	BitBlt(hCaptureDC, 0, 0, nScreenWidth, nScreenHeight, hDesktopDC, 0, 0, SRCCOPY | CAPTUREBLT);
-
-	BITMAPINFO bmi = {0};
-	bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
-	bmi.bmiHeader.biWidth = nScreenWidth;
-	bmi.bmiHeader.biHeight = nScreenHeight;
-	bmi.bmiHeader.biPlanes = 1;
-	bmi.bmiHeader.biBitCount = 32;
-	bmi.bmiHeader.biCompression = BI_RGB;
-
-	RGBQUAD *pPixels = new RGBQUAD[nScreenWidth * nScreenHeight];
-
-	GetDIBits(
-		hCaptureDC,
-		hCaptureBitmap,
-		0,
-		nScreenHeight,
-		pPixels,
-		&bmi,
-		DIB_RGB_COLORS);
-
-	// write:
-	int p;
-	int x, y;
-
-	BYTE *buf = new BYTE[nScreenWidth * 4 * nScreenHeight];
-	int c = 0;
-	for (y = 0; y < nScreenHeight; y++)
-	{
-		for (x = 0; x < nScreenWidth; x++)
-		{
-			p = (nScreenHeight - y - 1) * nScreenWidth + x; // upside down
-			const char r = pPixels[p].rgbRed;
-			const char g = pPixels[p].rgbGreen;
-			const char b = pPixels[p].rgbBlue;
-
-			buf[c] = r;
-			buf[c + 1] = g;
-			buf[c + 2] = b;
-			buf[c + 3] = 255;
-
-			c += 4;
-		}
-	}
-
-	// Use the new array data to create the new bitmap file
-	/* 	SaveBitmapToFile(buf,
-	nScreenWidth,
-	nScreenHeight,
-	24,
-	0,
-	filename); */
-
-	delete[] pPixels;
-
-	ReleaseDC(hDesktopWnd, hDesktopDC);
-	DeleteDC(hCaptureDC);
-	DeleteObject(hCaptureBitmap);
-
-	CapturedFrameResult ret = CapturedFrameResult();
-	ret.buf = buf;
-	ret.length = nScreenWidth * 4 * nScreenHeight;
-	ret.width = nScreenWidth;
-	ret.height = nScreenHeight;
-	return ret;
 }

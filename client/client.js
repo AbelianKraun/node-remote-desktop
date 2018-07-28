@@ -1,8 +1,10 @@
 const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require("path");
+const fs = require("fs-extra");
 const captureModule = require('./bindings');
 const WebSocketClient = require('websocket').client;
-
+const PNG = require("node-png").PNG;
+const streamToBuffer = require("stream-to-buffer");
 const screenCapturer = new captureModule.Vector();
 let win;
 
@@ -17,13 +19,22 @@ if (!init) {
 
 
 var client = new WebSocketClient();
+var connection = null;
+var interval = null;
+var currentTarget = null;
+var nextFrameData = {};
+var mustSendNextFrame = false;
+var cache = [];
+
 client.on('connectFailed', function (error) {
     console.log('Connect Error: ' + error.toString());
 
     setTimeout(tryConnect, 10000);
 });
 
-client.on('connect', function (connection) {
+client.on('connect', function (newConnection) {
+    connection = newConnection;
+
     console.log('WebSocket Client Connected');
     connection.on('error', function (error) {
         console.log("Connection Error: " + error.toString());
@@ -34,23 +45,89 @@ client.on('connect', function (connection) {
     });
     connection.on('message', function (message) {
         if (message.type === 'utf8') {
+            console.log(message.utf8Data);
+
             let content = JSON.parse(message.utf8Data);
-            console.log(content);
             switch (content.type) {
                 case "usersList":
                     win.webContents.send("refreshUsersList", content.clients);
                     break;
+                case "connectionRequest":
+                    currentTarget = content.from;
+                    mustSendNextFrame = true;
+                    sendMessage({ type: "acceptConnection", from: content.from, width: screenCapturer.width, height: screenCapturer.height });
+                    //sendScreen(content.from);
+                    setInterval(() => screenCapturer.getNextFrame(() => {return}), 5000);
+                    break;
+                case "connectionAccepted":
+                    currentTarget = content.from;
+                    win.webContents.send("setFrameDimension", {width: content.width, height: content.height});
+                    break;
+                case "nextFrameData":
+                    nextFrameData.x = content.x;
+                    nextFrameData.y = content.y;
+                    nextFrameData.width = content.w;
+                    nextFrameData.height = content.h;
+                    break;
+                case "frameReceived":
+                    console.log("Frame received. Sending another.", currentTarget);
+                    mustSendNextFrame = true;
+                    break;
             }
+        }
+        else if (message.type === 'binary') {
+
+            win.webContents.send("updateScreen", { data: message.binaryData, frameData: nextFrameData });
+            sendMessage({ type: "frameReceived", from: currentTarget });
         }
     });
 });
 
 function tryConnect() {
-    client.connect('ws://localhost:8080/', 'echo-protocol');
+    client.connect('ws://192.168.1.20:8080/', 'echo-protocol');
+}
+
+function sendMessage(obj) {
+    if (connection)
+        connection.sendUTF(JSON.stringify(obj));
+}
+
+function sendScreen() {
+
+    if (mustSendNextFrame) {
+        let dirties = cache.filter(c => c.isDirty).sort(x => x.updated.getTime());
+        let d = dirties.length > 0 ? dirties[0] : null;
+
+        if (d) {
+            d.isDirty = false;
+            console.log("Sending frame: ", d.x, d.y, d.width, d.height, d.data.length);
+            sendMessage({ type: "nextFrameData", to: currentTarget, x: d.x, y: d.y, w: d.width, h: d.height });
+            connection.sendBytes(Buffer.from(new Uint8Array(d.data)));
+            mustSendNextFrame = false;
+        }
+    }
+
+    let d = screenCapturer.getNextFrame((d) => {
+        if (d.data.length != 0) {
+
+            let previous = cache.find(c => c.x == d.x && c.y == d.y);
+            if (!previous) {
+                previous = { x: d.x, y: d.y, width: d.width, height: d.height };
+                cache.push(previous);
+            }
+
+            previous.data = d.data;
+            previous.updated = new Date();
+            previous.isDirty = true;
+        }
+
+        setTimeout(sendScreen,1);
+    });
+
 }
 
 ipcMain.on("connectToClient", (e, client) => {
-    console.log("connect", client);
+    sendMessage({ type: "connect", client: client });
 });
 
 

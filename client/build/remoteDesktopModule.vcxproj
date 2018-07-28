@@ -143,6 +143,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\index.cc"/>
+    <ClCompile Include="..\src\lodepng.cpp"/>
+    <ClCompile Include="..\src\AsyncWorker.cc"/>
     <ClCompile Include="..\src\Vector.cc"/>
     <ClCompile Include="C:\Users\valva\AppData\Roaming\npm\node_modules\node-gyp\src\win_delay_load_hook.cc"/>
   </ItemGroup>
