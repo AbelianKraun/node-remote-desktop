@@ -46,6 +46,9 @@ public:
   static NAN_METHOD(InitDevice);
   static NAN_METHOD(GetNextFrame);
   static NAN_METHOD(ReleaseDevice);
+  static NAN_METHOD(SetMousePosition);
+  static NAN_METHOD(GetMousePosition);
+  static NAN_METHOD(MouseClick);
 
   static NAN_GETTER(HandleGetters);
   static NAN_SETTER(HandleSetters);

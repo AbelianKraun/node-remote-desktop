@@ -29,9 +29,13 @@ function getScreen() {
 
         setTimeout(() => getScreen(), 1000);
     });
+
+
 }
 
-getScreen();
+//getScreen();
+setTimeout(() => screenCapturer.mouseClick(), 5000);
+
 
 function exitHandler(options, err) {
 

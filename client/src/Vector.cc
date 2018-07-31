@@ -24,6 +24,7 @@
 
 Nan::Persistent<v8::FunctionTemplate> Vector::constructor;
 void encodeTwoSteps(std::vector<unsigned char> &image, unsigned width, unsigned height, std::vector<unsigned char> &out);
+void LeftClick();
 
 NAN_MODULE_INIT(Vector::Init)
 {
@@ -40,6 +41,9 @@ NAN_MODULE_INIT(Vector::Init)
 	Nan::SetPrototypeMethod(ctor, "initDevice", InitDevice);
 	Nan::SetPrototypeMethod(ctor, "getNextFrame", GetNextFrame);
 	Nan::SetPrototypeMethod(ctor, "releaseDevice", ReleaseDevice);
+	Nan::SetPrototypeMethod(ctor, "setMousePosition", SetMousePosition);
+	Nan::SetPrototypeMethod(ctor, "getMousePosition", GetMousePosition);
+	Nan::SetPrototypeMethod(ctor, "mouseClick", MouseClick);
 
 	target->Set(Nan::New("Vector").ToLocalChecked(), ctor->GetFunction());
 }
@@ -164,7 +168,6 @@ NAN_METHOD(Vector::GetNextFrame)
 	Nan::AsyncQueueWorker(new MyAsyncWorker(bytes, previous, length, self->mode.Width, self->mode.Height, x, y, width, height,
 											new Nan::Callback(info[0].As<v8::Function>())));
 
-
 	x += width;
 
 	if (x >= self->mode.Width)
@@ -186,6 +189,31 @@ NAN_METHOD(Vector::ReleaseDevice)
 	RELEASE(self->surface);
 	RELEASE(self->device);
 	RELEASE(self->d3d);
+}
+
+NAN_METHOD(Vector::GetMousePosition)
+{
+	//Vector *self = Nan::ObjectWrap::Unwrap<Vector>(info.This());
+	POINT mouse;
+	GetCursorPos(&mouse);
+	auto returnValue = Nan::New<v8::Object>();
+	returnValue->Set(Nan::New("x").ToLocalChecked(), Nan::New(mouse.x));
+	returnValue->Set(Nan::New("y").ToLocalChecked(), Nan::New(mouse.y));
+
+	info.GetReturnValue().Set(returnValue);
+}
+
+NAN_METHOD(Vector::SetMousePosition)
+{
+	int x = info[0]->NumberValue();
+	int y = info[1]->NumberValue();
+
+	SetCursorPos(x, y);
+}
+
+NAN_METHOD(Vector::MouseClick)
+{
+	LeftClick();
 }
 
 NAN_GETTER(Vector::HandleGetters)
@@ -226,4 +254,22 @@ BOOL CALLBACK MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMoni
 
 	a++;
 	return true;
+}
+
+//
+// Desc    : Clicks the left mouse button down and releases it.
+// Returns : Nothing.
+//
+void LeftClick()
+{
+	INPUT Input = {0}; // Create our input.
+
+	Input.type = INPUT_MOUSE;				 // Let input know we are using the mouse.
+	Input.mi.dwFlags = MOUSEEVENTF_LEFTDOWN; // We are setting left mouse button down.
+	SendInput(1, &Input, sizeof(INPUT));	 // Send the input.
+
+	ZeroMemory(&Input, sizeof(INPUT));	 // Fills a block of memory with zeros.
+	Input.type = INPUT_MOUSE;			   // Let input know we are using the mouse.
+	Input.mi.dwFlags = MOUSEEVENTF_LEFTUP; // We are setting left mouse button up.
+	SendInput(1, &Input, sizeof(INPUT));   // Send the input.
 }

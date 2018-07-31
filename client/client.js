@@ -72,6 +72,12 @@ client.on('connect', function (newConnection) {
                     console.log("Frame received. Sending another.", currentTarget);
                     mustSendNextFrame = true;
                     break;
+                case "mouseMove":
+                    screenCapturer.setMousePosition(content.position.x, content.position.y);
+                    break;
+                case "mouseClick":
+                    screenCapturer.mouseClick();
+                    break;
             }
         }
         else if (message.type === 'binary') {
@@ -83,10 +89,17 @@ client.on('connect', function (newConnection) {
 });
 
 function tryConnect() {
-    client.connect('ws://192.168.1.20:8080/', 'echo-protocol');
+    client.connect('ws://51.255.167.242:8085/', 'echo-protocol');
 }
 
-function sendMessage(obj) {
+function sendMessage(obj, to) {
+
+    if (!obj)
+        obj = {}
+
+    if (to)
+        obj.to = to;
+
     if (connection)
         connection.sendUTF(JSON.stringify(obj));
 }
@@ -132,9 +145,18 @@ function sendScreen() {
 }
 
 ipcMain.on("connectToClient", (e, client) => {
-    sendMessage({ type: "connect", client: client });
+    sendMessage({ type: "connect", client });
 });
 
+ipcMain.on("mouseMove", (e, position) => {
+    console.log("mouse move:", position);
+    sendMessage({ type: "mouseMove", position }, currentTarget);
+});
+
+ipcMain.on("mouseClick", (e, client) => {
+    console.log("mouse click");
+    sendMessage({ type: "mouseClick" }, currentTarget);
+});
 
 function createWindow() {
 

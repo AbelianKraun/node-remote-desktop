@@ -61,6 +61,15 @@
     ipcRenderer.send("connectToClient", client);
   }
 
+  // Events
+  canvas.addEventListener("mousemove", (e) => {
+    ipcRenderer.send("mouseMove", {x: e.offsetX, y: e.offsetY});
+  });
+
+  canvas.addEventListener("click", (e) => {
+    ipcRenderer.send("mouseClick");
+  });
+
 </script>
 
 </html>
