@@ -42,19 +42,10 @@ wsServer.on('request', function (request) {
     var index = clients.size;
     var connection = request.accept('echo-protocol', request.origin);
     clients.set(index, connection);
-    console.log((new Date()) + ' - Connection accepted.');
 
 
-    let clientsList = [];
-
-    for (let [key, client] of clients)
-        clientsList.push(key);
-
-    clientsList = JSON.stringify({ type: "usersList", clients: clientsList });
-    console.log(clientsList);
-
-    for (let [key, client] of clients)
-        client.sendUTF(clientsList);
+    console.log((new Date()) + ' - Connection accepted. Updating users list to all.');
+    sendUpdatedUsersList();
 
     connection.on('message', function (message) {
         if (message.type === 'utf8') {
@@ -104,3 +95,15 @@ wsServer.on('request', function (request) {
         clients.delete(index);
     });
 });
+
+function sendUpdatedUsersList() {
+    for (let [key, client] of clients) {
+        let list = [];
+
+        for (let [key2, client2] of clients)
+            if (key2 != key)
+                list.push(key2);
+
+        client.sendUTF(JSON.stringify({ type: "usersList", clients: list }));
+    }
+}

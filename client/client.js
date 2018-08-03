@@ -89,7 +89,7 @@ client.on('connect', function (newConnection) {
 });
 
 function tryConnect() {
-    client.connect('ws://51.255.167.242:8085/', 'echo-protocol');
+    client.connect('ws://localhost:8085/', 'echo-protocol');
 }
 
 function sendMessage(obj, to) {
