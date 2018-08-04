@@ -25,6 +25,7 @@ wsServer.on('request', function (request) {
     var client = new client_1.Client(id, connection);
     client.onConnected = handleClientConnected;
     client.onDisconnected = handleClientDisconnected;
+    client.onQueueMessage = handleClientQueueMessage;
 });
 function handleClientConnected(client) {
     clients.add(client);
@@ -33,5 +34,14 @@ function handleClientConnected(client) {
 function handleClientDisconnected(client) {
     clients.remove(client);
     console.log("Connected clients:", clients.length);
+}
+function handleClientQueueMessage(from, to, type, content) {
+    var client;
+    if (to instanceof client_1.Client)
+        client = to;
+    else
+        client = clients.findByUuid(to);
+    if (client)
+        client.sendMessage(type, content);
 }
 //# sourceMappingURL=app.js.map

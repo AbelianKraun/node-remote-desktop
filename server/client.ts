@@ -49,6 +49,9 @@ export class Client {
     private handleDisconnection(reasonCode: number, description: string) {
         this.log("Client disconnected. (" + this.connection.remoteAddress + ")");
 
+        // Close all current connections
+        this.closeConnection();
+
         if (this.onDisconnected)
             this.onDisconnected(this);
     }
@@ -79,14 +82,7 @@ export class Client {
                     this.sendMessage(MessageType.Error, "Client busy or not ready.");
                 }
             case MessageType.ConnectionClose:
-                if (this.status == ClientStatus.Connecting || this.status == ClientStatus.Connected) {
-
-                    // Reset me
-                    this.status = ClientStatus.Ready;
-                    this.connectedClient = null;
-
-                    this.sendMessageToOther(message.destination, MessageType.ConnectionClosed);
-                } else {
+                if (!this.closeConnection()) {
                     this.sendMessage(MessageType.Error, "Client not connected to any destination or not ready");
                 }
         }
@@ -109,8 +105,28 @@ export class Client {
     public sendMessage(type: MessageType, content?: any) {
         let message = new Message(type, null, content);
 
-        if (this.connection)
+        if (this.connection && this.connection.connected)
             this.connection.sendUTF(message.toString());
+    }
+
+    public closeConnection() {
+        if (this.status == ClientStatus.Connecting || this.status == ClientStatus.Connected) {
+            let target = this.connectedClient;
+
+            // Reset me
+            this.status = ClientStatus.Ready;
+            this.connectedClient = null;
+
+            this.sendMessage(MessageType.ConnectionClosed);
+
+            // Close other client
+            if (target)
+                target.closeConnection();
+
+            return true;
+        } else {
+            return false;
+        }
     }
 
     private log(message: any) {
