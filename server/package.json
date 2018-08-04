@@ -12,6 +12,10 @@
   "dependencies": {
     "fs-extra": "^7.0.0",
     "stream-to-buffer": "^0.1.0",
+    "uuid": "^3.3.2",
     "websocket": "^1.0.26"
+  },
+  "devDependencies": {
+    "@types/node": "^6.0.87"
   }
 }
