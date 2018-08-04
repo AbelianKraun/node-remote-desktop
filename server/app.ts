@@ -2,10 +2,9 @@
 import { server as websocketServer } from "websocket";
 import * as http from "http";
 import { v1 as uuid } from "uuid";
-import { Client, ClientRepository } from "./client";
+import { Client } from "./client";
 import { MessageType } from "./message";
-
-var clients = new ClientRepository();
+import { clientsRepository } from "./client_repository";
 
 // Start server
 var server = http.createServer(function (request, response) {
@@ -31,29 +30,14 @@ wsServer.on('request', function (request) {
     var client = new Client(id, connection);
     client.onConnected = handleClientConnected;
     client.onDisconnected = handleClientDisconnected;
-    client.onQueueMessage = handleClientQueueMessage;
 });
 
 function handleClientConnected(client: Client) {
-    clients.add(client);
-    console.log("Connected clients:", clients.length);
+    clientsRepository.add(client);
+    console.log("Connected clients:", clientsRepository.length);
 }
 
 function handleClientDisconnected(client: Client) {
-    clients.remove(client);
-    console.log("Connected clients:", clients.length);
+    clientsRepository.remove(client);
+    console.log("Connected clients:", clientsRepository.length);
 }
-
-function handleClientQueueMessage(from: Client, to: Client | string, type: MessageType, content: any) {
-
-    let client!: Client;
-
-    if (to instanceof Client)
-        client = to;
-    else
-        client = clients.findByUuid(to);
-
-    if (client)
-        client.sendMessage(type, content);
-}
-

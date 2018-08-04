@@ -1,4 +1,5 @@
 ﻿import Message, { MessageType } from "./message";
+import { clientsRepository } from "./client_repository";
 
 export enum ClientStatus {
     Creating,
@@ -15,7 +16,6 @@ export class Client {
     // Events
     public onConnected: (client: Client) => void;
     public onDisconnected: (client: Client) => void;
-    public onQueueMessage: (from: Client, to: Client | string, type: MessageType, content: any) => void;
 
 
     constructor(public uuid: string, private connection: any) {
@@ -62,22 +62,44 @@ export class Client {
         switch (message.type) {
             case MessageType.ConnectionRequest:
                 if (this.status == ClientStatus.Ready) {
-                    this.status = ClientStatus.Connecting;
-                    this.relayMessage(message);
+
+                    // Check target
+                    let target = clientsRepository.findByUuid(message.destination);
+                    if (target && target.requestConnection(this))
+                        this.status = ClientStatus.Connecting;
+                    else {
+                        this.sendMessage(MessageType.Error, "Target busy or not available");
+                        this.closeConnection();
+                    }
+
                 } else {
                     this.sendMessage(MessageType.Error, "Client busy or not ready.");
                 }
             case MessageType.ConnectionAccept:
-                if (this.status == ClientStatus.Ready) {
-                    this.status = ClientStatus.Connecting;
-                    this.relayMessage(message);
+                if (this.status == ClientStatus.Connecting) {
+                    // Check target
+                    let target = clientsRepository.findByUuid(message.content as string);
+
+                    if (target)
+                        target.acceptConnection(this)
+                    else {
+                        this.sendMessage(MessageType.Error, "Target busy or not available");
+                        this.closeConnection();
+                    }
                 } else {
                     this.sendMessage(MessageType.Error, "Client busy or not ready.");
                 }
             case MessageType.ConnectionCompleted:
                 if (this.status == ClientStatus.Connecting) {
-                    this.status = ClientStatus.Connected;
-                    this.relayMessage(message);
+
+                    // Check target
+                    let target = clientsRepository.findByUuid(message.destination);
+                    if (target && target.completeConnection(this)) {
+                        this.completeConnection(target);
+                    } else {
+                        this.sendMessage(MessageType.Error, "Target busy or not available");
+                        this.closeConnection();
+                    }
                 } else {
                     this.sendMessage(MessageType.Error, "Client busy or not ready.");
                 }
@@ -92,21 +114,41 @@ export class Client {
 
     }
 
-    // This method simply work as a relay. We just send a message from client to client
-    private relayMessage(message: Message) {
-        this.sendMessageToOther(message.destination, message.type, message.content);
-    }
-
-    private sendMessageToOther(destination: Client | string, type: MessageType, content?: any) {
-        if (this.onQueueMessage)
-            this.onQueueMessage(this, destination, type, content);
-    }
-
     public sendMessage(type: MessageType, content?: any) {
         let message = new Message(type, null, content);
 
         if (this.connection && this.connection.connected)
             this.connection.sendUTF(message.toString());
+    }
+
+    public requestConnection(from: Client) {
+        if (this.status == ClientStatus.Ready) {
+            this.status = ClientStatus.Connecting;
+            this.sendMessage(MessageType.ConnectionRequest, from.uuid);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public acceptConnection(from: Client) {
+        if (this.status == ClientStatus.Connecting) {
+            this.sendMessage(MessageType.ConnectionAccept, from.uuid);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public completeConnection(other: Client) {
+        if (this.status == ClientStatus.Connecting) {
+            this.status = ClientStatus.Connected;
+            this.connectedClient = other;
+
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public closeConnection() {
@@ -133,34 +175,4 @@ export class Client {
         console.log(this.uuid + ": " + message);
     }
 
-}
-
-export class ClientRepository {
-    private clients: Client[] = [];
-
-    get length() {
-        return this.clients.length;
-    }
-
-    public add(client: Client) {
-        this.clients.push(client);
-    }
-
-    public remove(clientToRemove: Client) {
-        let newClients: Client[] = [];
-
-        for (let client of this.clients)
-            if (client != clientToRemove)
-                newClients.push(client);
-
-        this.clients = newClients;
-    }
-
-    public findByUuid(uuid: string): Client | null {
-        for (let client of this.clients)
-            if (client.uuid == uuid)
-                return client;
-
-        return null;
-    }
 }
