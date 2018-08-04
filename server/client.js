@@ -19,10 +19,11 @@ var Client = /** @class */ (function () {
             }
         });
         connection.on('close', function (reasonCode, description) { return _this.handleDisconnection(reasonCode, description); });
-        // Wait for callabacks tu init
         process.nextTick(function () {
             if (_this.onConnected)
                 _this.onConnected(_this);
+            // Send client ready
+            _this.sendMessage(message_1.MessageType.ClientReady);
         });
     }
     Client.prototype.handleDisconnection = function (reasonCode, description) {
@@ -35,8 +36,8 @@ var Client = /** @class */ (function () {
     };
     Client.prototype.handleBinaryMessage = function (message) {
     };
-    Client.prototype.sendMessage = function (type, destination, content) {
-        var message = new message_1.default(type, destination, content);
+    Client.prototype.sendMessage = function (type, content) {
+        var message = new message_1.default(type, content);
         if (this.connection)
             this.connection.sendUTF(message.toString());
     };

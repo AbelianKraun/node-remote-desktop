@@ -1,28 +1,45 @@
 ﻿import { Client } from "./client";
 
 export enum MessageType {
+    ClientReady,
+
     ConnectionRequest,
     ConnectionAccept,
-    ConnectionAccepted,
+    ConnectionCompleted,
+    ConnectionClose,
+    ConnectionClosed,
 
     MouseMove,
     MouseClick,
     MouseWheel,
 
     NextFrameData,
-    FrameReceived
+    FrameReceived,
+
+    Success,
+    Error
 }
 
 export default class Message {
-    constructor(public type: MessageType, public destination: Client | string, public content: any) {
+    public destination: string | null;
+
+    constructor(public type: MessageType, destination: Client | string | null, public content: any) {
+
+        if (destination)
+            this.destination = destination instanceof Client ? destination.uuid : this.destination;
     }
 
     public toString() {
-        return JSON.stringify({
+
+        let msg: any = {
             type: this.type,
-            destination: this.destination instanceof Client ? this.destination.uuid : this.destination,
             content: this.content
-        })
+        };
+
+        if (this.destination)
+            msg.destination = this.destination;
+
+        return JSON.stringify(msg);
     }
 }
 
