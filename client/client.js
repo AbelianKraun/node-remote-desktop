@@ -26,7 +26,7 @@ var Client = /** @class */ (function () {
             _this.connection.on('close', function (reasonCode, description) { return _this.handleDisconnection(reasonCode, description); });
             _this.connection.on('message', function (message) {
                 if (message.type === 'utf8') {
-                    _this.handleUTFMessage(message.utf8Data);
+                    _this.handleUTFMessage(JSON.parse(message.utf8Data));
                 }
                 else if (message.type === "binary") {
                     _this.handleBinaryMessage(message.binaryData);
@@ -45,6 +45,9 @@ var Client = /** @class */ (function () {
         if (this.status != ClientStatus.Disconnected) {
             this.websocketClient.disconnect();
         }
+    };
+    Client.prototype.connectTo = function (id, pwd) {
+        this.sendMessage(message_1.MessageType.ConnectionRequest, { id: id, pwd: pwd });
     };
     Client.prototype.handleDisconnection = function (reasonCode, description) {
         var _this = this;
@@ -65,12 +68,20 @@ var Client = /** @class */ (function () {
                 if (this.onReady)
                     this.onReady(this.clientId, this.clientPwd);
                 break;
+            case message_1.MessageType.ConnectionRequest:
+                // Request is already authorized by server, so we don't need to check for pwd
+                this.sendMessage(message_1.MessageType.ConnectionAccept, message.content); // Content contains the guid of the requester
+                break;
+            case message_1.MessageType.ConnectionAccept:
+                // Request is already authorized by server, so we don't need to check for pwd
+                this.sendMessage(message_1.MessageType.ConnectionCompleted, message.content); // Content contains the guid of the requester
+                break;
         }
     };
     Client.prototype.handleBinaryMessage = function (message) {
     };
     Client.prototype.sendMessage = function (type, content) {
-        var message = new message_1.default(type, null, content);
+        var message = new message_1.default(type, content);
         if (this.connection && this.connection.connected)
             this.connection.sendUTF(message.toString());
     };

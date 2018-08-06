@@ -37,7 +37,7 @@ export class Client {
             this.connection.on('close', (reasonCode, description) => this.handleDisconnection(reasonCode, description));
             this.connection.on('message', (message) => {
                 if (message.type === 'utf8') {
-                    this.handleUTFMessage(message.utf8Data);
+                    this.handleUTFMessage(JSON.parse(message.utf8Data));
                 } else if (message.type === "binary") {
                     this.handleBinaryMessage(message.binaryData);
                 }
@@ -60,6 +60,10 @@ export class Client {
         if (this.status != ClientStatus.Disconnected) {
             this.websocketClient.disconnect();
         }
+    }
+
+    public connectTo(id: string, pwd: string) {
+        this.sendMessage(MessageType.ConnectionRequest, { id, pwd });
     }
 
     private handleDisconnection(reasonCode: number, description: string) {
@@ -86,7 +90,14 @@ export class Client {
                 if (this.onReady)
                     this.onReady(this.clientId, this.clientPwd);
                 break;
-                
+            case MessageType.ConnectionRequest:
+                // Request is already authorized by server, so we don't need to check for pwd
+                this.sendMessage(MessageType.ConnectionAccept, message.content); // Content contains the guid of the requester
+                break;
+            case MessageType.ConnectionAccept:
+                // Request is already authorized by server, so we don't need to check for pwd
+                this.sendMessage(MessageType.ConnectionCompleted, message.content); // Content contains the guid of the requester
+                break;
         }
     }
 
@@ -95,13 +106,12 @@ export class Client {
     }
 
     public sendMessage(type: MessageType, content?: any) {
-        let message = new Message(type, null, content);
+        let message = new Message(type, content);
 
         if (this.connection && this.connection.connected)
             this.connection.sendUTF(message.toString());
     }
     
-
     private log(message: any) {
         console.log(message);
     }

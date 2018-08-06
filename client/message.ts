@@ -9,24 +9,20 @@ export enum MessageType {
     ConnectionClose,
     ConnectionClosed,
 
-    MouseMove,
-    MouseClick,
-    MouseWheel,
+    MouseEvent,
 
     NextFrameData,
     FrameReceived,
 
     Success,
-    Error
+    Error,
 }
 
 export default class Message {
     public destination: string | null;
 
-    constructor(public type: MessageType, destination: string | null, public content: any) {
+    constructor(public type: MessageType,  public content: any) {
 
-        if (destination)
-            this.destination = destination;
     }
 
     public toString() {
@@ -35,9 +31,6 @@ export default class Message {
             type: this.type,
             content: this.content
         };
-
-        if (this.destination)
-            msg.destination = this.destination;
 
         return JSON.stringify(msg);
     }

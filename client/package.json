@@ -4,7 +4,8 @@
   "description": "",
   "main": "client.js",
   "scripts": {
-    "start": "node-gyp build && electron .",
+    "buildstart": "node-gyp build && electron app.js",
+    "start": "electron app.js",
     "test": "node-gyp build && electron test.js"
   },
   "author": "",
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "fs-extra": "^7.0.0",
+    "jquery": "^3.3.1",
     "node-png": "^0.4.3",
     "stream-to-buffer": "^0.1.0",
     "websocket": "^1.0.26"

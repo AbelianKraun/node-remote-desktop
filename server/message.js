@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-var client_1 = require("./client");
 var MessageType;
 (function (MessageType) {
     MessageType[MessageType["ClientReady"] = 0] = "ClientReady";
@@ -16,19 +15,15 @@ var MessageType;
     MessageType[MessageType["Error"] = 10] = "Error";
 })(MessageType = exports.MessageType || (exports.MessageType = {}));
 var Message = /** @class */ (function () {
-    function Message(type, destination, content) {
+    function Message(type, content) {
         this.type = type;
         this.content = content;
-        if (destination)
-            this.destination = destination instanceof client_1.Client ? destination.uuid : destination;
     }
     Message.prototype.toString = function () {
         var msg = {
             type: this.type,
             content: this.content
         };
-        if (this.destination)
-            msg.destination = this.destination;
         return JSON.stringify(msg);
     };
     return Message;

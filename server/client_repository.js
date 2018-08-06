@@ -31,6 +31,14 @@ var ClientRepository = /** @class */ (function () {
         }
         return null;
     };
+    ClientRepository.prototype.findByClientId = function (id) {
+        for (var _i = 0, _a = this.clients; _i < _a.length; _i++) {
+            var client = _a[_i];
+            if (client.clientId == id)
+                return client;
+        }
+        return null;
+    };
     return ClientRepository;
 }());
 exports.ClientRepository = ClientRepository;

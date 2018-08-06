@@ -24,12 +24,19 @@ function createWindow() {
     mainWindow = new electron_1.BrowserWindow({ width: 800, height: 600 });
     mainWindow.loadFile(startUrl);
     mainWindow.on("closed", function () { return mainWindow = null; });
-    // Start client
-    client.connect();
 }
 // Client events
 client.onReady = function (id, pwd) {
     if (mainWindow)
         mainWindow.webContents.send("clientReady", { id: id, pwd: pwd });
 };
+// DOM events
+electron_1.ipcMain.on("domReady", function () {
+    client.connect();
+});
+electron_1.ipcMain.on("connect", function (e, _a) {
+    var id = _a.id, pwd = _a.pwd;
+    console.log("Connecting to ", id, pwd);
+    client.connectTo(id, pwd);
+});
 //# sourceMappingURL=app.js.map

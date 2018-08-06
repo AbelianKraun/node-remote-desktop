@@ -25,7 +25,7 @@ var Client = /** @class */ (function () {
         // Setup events
         connection.on('message', function (message) {
             if (message.type === 'utf8') {
-                _this.handleUTFMessage(message.utf8Data);
+                _this.handleUTFMessage(JSON.parse(message.utf8Data));
             }
             else if (message.type === "binary") {
                 _this.handleBinaryMessage(message.binaryData);
@@ -38,6 +38,8 @@ var Client = /** @class */ (function () {
                 _this.onConnected(_this);
             var id = utils_1.padLeft(Math.round(Math.random() * 100).toString(), 3, '0') + "" + utils_1.padLeft(Math.round(Math.random() * 100).toString(), 3, '0') + "" + utils_1.padLeft(Math.round(Math.random() * 100).toString(), 3, '0');
             var pwd = utils_1.randomString(5, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ").toUpperCase();
+            _this.clientId = id;
+            _this.clientPwd = pwd;
             // Send client ready
             _this.sendMessage(message_1.MessageType.ClientReady, { id: id, pwd: pwd });
         });
@@ -50,13 +52,13 @@ var Client = /** @class */ (function () {
             this.onDisconnected(this);
     };
     Client.prototype.handleUTFMessage = function (message) {
-        this.log(message);
+        this.log(JSON.stringify(message));
         switch (message.type) {
             case message_1.MessageType.ConnectionRequest:
                 if (this.status == ClientStatus.Ready) {
                     // Check target
-                    var target = client_repository_1.clientsRepository.findByUuid(message.destination);
-                    if (target && target.requestConnection(this))
+                    var target = client_repository_1.clientsRepository.findByClientId(message.content.id);
+                    if (target && target.requestConnection(this, message.content.pwd))
                         this.status = ClientStatus.Connecting;
                     else {
                         this.sendMessage(message_1.MessageType.Error, "Target busy or not available");
@@ -66,6 +68,7 @@ var Client = /** @class */ (function () {
                 else {
                     this.sendMessage(message_1.MessageType.Error, "Client busy or not ready.");
                 }
+                break;
             case message_1.MessageType.ConnectionAccept:
                 if (this.status == ClientStatus.Connecting) {
                     // Check target
@@ -80,12 +83,14 @@ var Client = /** @class */ (function () {
                 else {
                     this.sendMessage(message_1.MessageType.Error, "Client busy or not ready.");
                 }
+                break;
             case message_1.MessageType.ConnectionCompleted:
                 if (this.status == ClientStatus.Connecting) {
                     // Check target
-                    var target = client_repository_1.clientsRepository.findByUuid(message.destination);
+                    var target = client_repository_1.clientsRepository.findByUuid(message.content);
                     if (target && target.completeConnection(this)) {
                         this.completeConnection(target);
+                        this.log("Connection estabilished. From " + this.clientId + " to " + target.clientId);
                     }
                     else {
                         this.sendMessage(message_1.MessageType.Error, "Target busy or not available");
@@ -95,21 +100,24 @@ var Client = /** @class */ (function () {
                 else {
                     this.sendMessage(message_1.MessageType.Error, "Client busy or not ready.");
                 }
+                break;
             case message_1.MessageType.ConnectionClose:
                 if (!this.closeConnection()) {
                     this.sendMessage(message_1.MessageType.Error, "Client not connected to any destination or not ready");
                 }
+                break;
         }
     };
     Client.prototype.handleBinaryMessage = function (message) {
     };
     Client.prototype.sendMessage = function (type, content) {
-        var message = new message_1.default(type, null, content);
+        var message = new message_1.default(type, content);
         if (this.connection && this.connection.connected)
             this.connection.sendUTF(message.toString());
     };
-    Client.prototype.requestConnection = function (from) {
-        if (this.status == ClientStatus.Ready) {
+    Client.prototype.requestConnection = function (from, pwd) {
+        this.log("Connection request from " + from.clientId + ", pwd: " + pwd);
+        if (pwd == this.clientPwd && this.status == ClientStatus.Ready) {
             this.status = ClientStatus.Connecting;
             this.sendMessage(message_1.MessageType.ConnectionRequest, from.uuid);
             return true;
@@ -154,7 +162,7 @@ var Client = /** @class */ (function () {
         }
     };
     Client.prototype.log = function (message) {
-        console.log(this.uuid + ": " + message);
+        console.log((this.clientId || this.uuid) + ": " + message);
     };
     return Client;
 }());

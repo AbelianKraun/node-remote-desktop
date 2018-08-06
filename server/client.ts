@@ -13,7 +13,7 @@ export enum ClientStatus {
 
 export class Client {
 
-    private clientId: string | null = null;
+    public clientId: string | null = null;
     private clientPwd: string | null = null;
     private status = ClientStatus.Creating;
     private connectedClient: Client | null = null;
@@ -32,7 +32,7 @@ export class Client {
         // Setup events
         connection.on('message', (message) => {
             if (message.type === 'utf8') {
-                this.handleUTFMessage(message.utf8Data);
+                this.handleUTFMessage(JSON.parse(message.utf8Data));
             } else if (message.type === "binary") {
                 this.handleBinaryMessage(message.binaryData);
             }
@@ -68,15 +68,15 @@ export class Client {
     }
 
     private handleUTFMessage(message: Message) {
-        this.log(message);
+        this.log(JSON.stringify(message));
 
         switch (message.type) {
             case MessageType.ConnectionRequest:
                 if (this.status == ClientStatus.Ready) {
 
                     // Check target
-                    let target = clientsRepository.findByUuid(message.destination);
-                    if (target && target.requestConnection(this))
+                    let target = clientsRepository.findByClientId(message.content.id);
+                    if (target && target.requestConnection(this, message.content.pwd))
                         this.status = ClientStatus.Connecting;
                     else {
                         this.sendMessage(MessageType.Error, "Target busy or not available");
@@ -86,6 +86,7 @@ export class Client {
                 } else {
                     this.sendMessage(MessageType.Error, "Client busy or not ready.");
                 }
+                break;
             case MessageType.ConnectionAccept:
                 if (this.status == ClientStatus.Connecting) {
                     // Check target
@@ -100,13 +101,16 @@ export class Client {
                 } else {
                     this.sendMessage(MessageType.Error, "Client busy or not ready.");
                 }
+                break;
             case MessageType.ConnectionCompleted:
                 if (this.status == ClientStatus.Connecting) {
 
                     // Check target
-                    let target = clientsRepository.findByUuid(message.destination);
+                    let target = clientsRepository.findByUuid(message.content);
                     if (target && target.completeConnection(this)) {
                         this.completeConnection(target);
+
+                        this.log("Connection estabilished. From " + this.clientId + " to " + target.clientId);
                     } else {
                         this.sendMessage(MessageType.Error, "Target busy or not available");
                         this.closeConnection();
@@ -114,10 +118,12 @@ export class Client {
                 } else {
                     this.sendMessage(MessageType.Error, "Client busy or not ready.");
                 }
+                break;
             case MessageType.ConnectionClose:
                 if (!this.closeConnection()) {
                     this.sendMessage(MessageType.Error, "Client not connected to any destination or not ready");
                 }
+                break;
         }
     }
 
@@ -126,14 +132,15 @@ export class Client {
     }
 
     public sendMessage(type: MessageType, content?: any) {
-        let message = new Message(type, null, content);
+        let message = new Message(type, content);
 
         if (this.connection && this.connection.connected)
             this.connection.sendUTF(message.toString());
     }
 
-    public requestConnection(from: Client) {
-        if (this.status == ClientStatus.Ready) {
+    public requestConnection(from: Client, pwd: string) {
+        this.log("Connection request from " + from.clientId + ", pwd: " + pwd);
+        if (pwd == this.clientPwd && this.status == ClientStatus.Ready) {
             this.status = ClientStatus.Connecting;
             this.sendMessage(MessageType.ConnectionRequest, from.uuid);
             return true;
@@ -183,7 +190,7 @@ export class Client {
     }
 
     private log(message: any) {
-        console.log(this.uuid + ": " + message);
+        console.log((this.clientId || this.uuid) + ": " + message);
     }
 
 }

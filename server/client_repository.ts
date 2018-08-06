@@ -29,6 +29,14 @@ export class ClientRepository {
 
         return null;
     }
+
+    public findByClientId(id: string): Client | null {
+        for (let client of this.clients)
+            if (client.clientId == id)
+                return client;
+
+        return null;
+    }
 }
 
 export var clientsRepository = new ClientRepository();
