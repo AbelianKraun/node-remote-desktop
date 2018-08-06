@@ -8,13 +8,13 @@
 
 <body>
 
-    <strong>users</strong>
-    <ul id="users-list"></ul>
+    <strong>Your ID: </strong><span id="client-id">-</span>
+    <strong>Your Password: </strong><span id="client-pwd">-</span>
 
     <canvas id="canvas" width="1366" height="768"></canvas>
 
 
-    <script>
+    <!--<script>
         let ipcRenderer = require('electron').ipcRenderer;
         let usersList = document.querySelector("#users-list");
         let canvas = document.querySelector("#canvas");
@@ -68,7 +68,7 @@
             ipcRenderer.send("mouseClick");
         });
 
-    </script>
+    </script>-->
 
 </body>
 

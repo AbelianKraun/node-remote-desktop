@@ -6,38 +6,44 @@ var ClientStatus;
 (function (ClientStatus) {
     ClientStatus[ClientStatus["Disconnected"] = 0] = "Disconnected";
     ClientStatus[ClientStatus["Connected"] = 1] = "Connected";
+    ClientStatus[ClientStatus["Ready"] = 2] = "Ready";
 })(ClientStatus = exports.ClientStatus || (exports.ClientStatus = {}));
 var Client = /** @class */ (function () {
     function Client() {
         var _this = this;
         this.status = ClientStatus.Disconnected;
         this.connectedClient = null;
-        this.connection = new websocket_1.client();
+        this.websocketClient = new websocket_1.client();
+        this.connection = null;
         this.uuid = "";
         this.clientId = "";
         this.clientPwd = "";
         this.log("Client created.");
         // Setup events
-        this.connection.on('message', function (message) {
-            if (message.type === 'utf8') {
-                _this.handleUTFMessage(message.utf8Data);
-            }
-            else if (message.type === "binary") {
-                _this.handleBinaryMessage(message.binaryData);
-            }
+        this.websocketClient.on("connect", function (connection) {
+            _this.log("Connected.");
+            _this.connection = connection;
+            _this.connection.on('close', function (reasonCode, description) { return _this.handleDisconnection(reasonCode, description); });
+            _this.connection.on('message', function (message) {
+                if (message.type === 'utf8') {
+                    _this.handleUTFMessage(message.utf8Data);
+                }
+                else if (message.type === "binary") {
+                    _this.handleBinaryMessage(message.binaryData);
+                }
+            });
         });
-        this.connection.on('connectFailed', function (error) { return _this.handleDisconnection(0, error.toString()); });
-        this.connection.on('close', function (reasonCode, description) { return _this.handleDisconnection(reasonCode, description); });
+        this.websocketClient.on('connectFailed', function (error) { return _this.handleDisconnection(0, error.toString()); });
     }
     Client.prototype.connect = function () {
         this.log("Try connecting to server...");
         if (this.status == ClientStatus.Disconnected) {
-            this.connection.connect('ws://localhost:8085/', 'echo-protocol');
+            this.websocketClient.connect('ws://localhost:8085/', 'echo-protocol');
         }
     };
     Client.prototype.disconnect = function () {
         if (this.status != ClientStatus.Disconnected) {
-            this.handleDisconnection(0, "Manual disconnection");
+            this.websocketClient.disconnect();
         }
     };
     Client.prototype.handleDisconnection = function (reasonCode, description) {
@@ -52,7 +58,13 @@ var Client = /** @class */ (function () {
     Client.prototype.handleUTFMessage = function (message) {
         this.log(message);
         switch (message.type) {
-            case message_1.MessageType.ConnectionRequest:
+            case message_1.MessageType.ClientReady:
+                this.status = ClientStatus.Ready;
+                this.clientId = message.content.id;
+                this.clientPwd = message.content.pwd;
+                if (this.onReady)
+                    this.onReady(this.clientId, this.clientPwd);
+                break;
         }
     };
     Client.prototype.handleBinaryMessage = function (message) {

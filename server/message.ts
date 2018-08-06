@@ -9,15 +9,13 @@ export enum MessageType {
     ConnectionClose,
     ConnectionClosed,
 
-    MouseMove,
-    MouseClick,
-    MouseWheel,
+    MouseEvent,
 
     NextFrameData,
     FrameReceived,
 
     Success,
-    Error
+    Error,
 }
 
 export default class Message {

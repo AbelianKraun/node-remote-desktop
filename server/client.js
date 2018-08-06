@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var message_1 = require("./message");
 var client_repository_1 = require("./client_repository");
+var utils_1 = require("./utils");
 var ClientStatus;
 (function (ClientStatus) {
     ClientStatus[ClientStatus["Creating"] = 0] = "Creating";
@@ -14,6 +15,8 @@ var Client = /** @class */ (function () {
         var _this = this;
         this.uuid = uuid;
         this.connection = connection;
+        this.clientId = null;
+        this.clientPwd = null;
         this.status = ClientStatus.Creating;
         this.connectedClient = null;
         this.connection = connection;
@@ -33,8 +36,10 @@ var Client = /** @class */ (function () {
             _this.status = ClientStatus.Ready;
             if (_this.onConnected)
                 _this.onConnected(_this);
+            var id = utils_1.padLeft(Math.round(Math.random() * 100).toString(), 3, '0') + "" + utils_1.padLeft(Math.round(Math.random() * 100).toString(), 3, '0') + "" + utils_1.padLeft(Math.round(Math.random() * 100).toString(), 3, '0');
+            var pwd = utils_1.randomString(5, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ").toUpperCase();
             // Send client ready
-            _this.sendMessage(message_1.MessageType.ClientReady);
+            _this.sendMessage(message_1.MessageType.ClientReady, { id: id, pwd: pwd });
         });
     }
     Client.prototype.handleDisconnection = function (reasonCode, description) {

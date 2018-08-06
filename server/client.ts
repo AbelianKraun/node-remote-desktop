@@ -1,5 +1,6 @@
 ﻿import Message, { MessageType } from "./message";
 import { clientsRepository } from "./client_repository";
+import { randomString, padLeft } from "./utils";
 
 export enum ClientStatus {
     Creating,
@@ -8,8 +9,12 @@ export enum ClientStatus {
     Connected,
 }
 
+
+
 export class Client {
 
+    private clientId: string | null = null;
+    private clientPwd: string | null = null;
     private status = ClientStatus.Creating;
     private connectedClient: Client | null = null;
 
@@ -41,8 +46,14 @@ export class Client {
             if (this.onConnected)
                 this.onConnected(this);
 
+            let id = padLeft(Math.round(Math.random() * 100).toString(), 3, '0') + "" + padLeft(Math.round(Math.random() * 100).toString(), 3, '0') + "" + padLeft(Math.round(Math.random() * 100).toString(), 3, '0');
+            let pwd = randomString(5, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ").toUpperCase();
+
+            this.clientId = id;
+            this.clientPwd = pwd;
+
             // Send client ready
-            this.sendMessage(MessageType.ClientReady);
+            this.sendMessage(MessageType.ClientReady, { id, pwd });
         });
     }
 

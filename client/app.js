@@ -27,4 +27,9 @@ function createWindow() {
     // Start client
     client.connect();
 }
+// Client events
+client.onReady = function (id, pwd) {
+    if (mainWindow)
+        mainWindow.webContents.send("clientReady", { id: id, pwd: pwd });
+};
 //# sourceMappingURL=app.js.map

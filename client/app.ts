@@ -32,3 +32,9 @@ function createWindow() {
     // Start client
     client.connect();
 }
+
+// Client events
+client.onReady = (id, pwd) => {
+    if (mainWindow)
+        mainWindow.webContents.send("clientReady", { id, pwd });
+};
