@@ -1,0 +1,75 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Remote desktop</title>
+</head>
+
+<body>
+
+    <strong>users</strong>
+    <ul id="users-list"></ul>
+
+    <canvas id="canvas" width="1366" height="768"></canvas>
+
+
+    <script>
+        let ipcRenderer = require('electron').ipcRenderer;
+        let usersList = document.querySelector("#users-list");
+        let canvas = document.querySelector("#canvas");
+        let ctx = canvas.getContext("2d");
+        let nextFrameData = null;
+
+        let img = new Image();
+        img.onload = function onLoad(e) {
+            console.log("onload", nextFrameData);
+
+            ctx.drawImage(img, nextFrameData.x, nextFrameData.y, nextFrameData.width, nextFrameData.height);
+        };
+
+        ipcRenderer.on("refreshUsersList", (e, clients) => {
+            usersList.innerHTML = "";
+
+            for (let client of clients) {
+                let row = document.createElement("li");
+                row.innerText = client;
+                usersList.appendChild(row);
+
+                row.addEventListener("click", () => userClick(client))
+            }
+        });
+
+        ipcRenderer.on("updateScreen", (e, params) => {
+            nextFrameData = { x: params.frameData.x, y: params.frameData.y, width: params.frameData.width, height: params.frameData.height };
+            img.src = "data:image/png;base64," + params.data.toString('base64');
+
+            delete params.data;
+            delete params;
+        });
+
+        ipcRenderer.on("setFrameDimension", (e, params) => {
+            canvas.width = params.width;
+            canvas.height = params.height;
+            canvas.style.width = params.width + "px";
+            canvas.style.height = params.height + "px";
+        })
+
+        function userClick(client) {
+            ipcRenderer.send("connectToClient", client);
+        }
+
+        // Events
+        canvas.addEventListener("mousemove", (e) => {
+            ipcRenderer.send("mouseMove", { x: e.offsetX, y: e.offsetY });
+        });
+
+        canvas.addEventListener("click", (e) => {
+            ipcRenderer.send("mouseClick");
+        });
+
+    </script>
+
+</body>
+
+</html>

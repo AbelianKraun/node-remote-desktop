@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var message_1 = require("./message");
+var client_repository_1 = require("./client_repository");
 var ClientStatus;
 (function (ClientStatus) {
     ClientStatus[ClientStatus["Creating"] = 0] = "Creating";
@@ -48,24 +49,43 @@ var Client = /** @class */ (function () {
         switch (message.type) {
             case message_1.MessageType.ConnectionRequest:
                 if (this.status == ClientStatus.Ready) {
-                    this.status = ClientStatus.Connecting;
-                    this.relayMessage(message);
+                    // Check target
+                    var target = client_repository_1.clientsRepository.findByUuid(message.destination);
+                    if (target && target.requestConnection(this))
+                        this.status = ClientStatus.Connecting;
+                    else {
+                        this.sendMessage(message_1.MessageType.Error, "Target busy or not available");
+                        this.closeConnection();
+                    }
                 }
                 else {
                     this.sendMessage(message_1.MessageType.Error, "Client busy or not ready.");
                 }
             case message_1.MessageType.ConnectionAccept:
-                if (this.status == ClientStatus.Ready) {
-                    this.status = ClientStatus.Connecting;
-                    this.relayMessage(message);
+                if (this.status == ClientStatus.Connecting) {
+                    // Check target
+                    var target = client_repository_1.clientsRepository.findByUuid(message.content);
+                    if (target)
+                        target.acceptConnection(this);
+                    else {
+                        this.sendMessage(message_1.MessageType.Error, "Target busy or not available");
+                        this.closeConnection();
+                    }
                 }
                 else {
                     this.sendMessage(message_1.MessageType.Error, "Client busy or not ready.");
                 }
             case message_1.MessageType.ConnectionCompleted:
                 if (this.status == ClientStatus.Connecting) {
-                    this.status = ClientStatus.Connected;
-                    this.relayMessage(message);
+                    // Check target
+                    var target = client_repository_1.clientsRepository.findByUuid(message.destination);
+                    if (target && target.completeConnection(this)) {
+                        this.completeConnection(target);
+                    }
+                    else {
+                        this.sendMessage(message_1.MessageType.Error, "Target busy or not available");
+                        this.closeConnection();
+                    }
                 }
                 else {
                     this.sendMessage(message_1.MessageType.Error, "Client busy or not ready.");
@@ -78,18 +98,39 @@ var Client = /** @class */ (function () {
     };
     Client.prototype.handleBinaryMessage = function (message) {
     };
-    // This method simply work as a relay. We just send a message from client to client
-    Client.prototype.relayMessage = function (message) {
-        this.sendMessageToOther(message.destination, message.type, message.content);
-    };
-    Client.prototype.sendMessageToOther = function (destination, type, content) {
-        if (this.onQueueMessage)
-            this.onQueueMessage(this, destination, type, content);
-    };
     Client.prototype.sendMessage = function (type, content) {
         var message = new message_1.default(type, null, content);
         if (this.connection && this.connection.connected)
             this.connection.sendUTF(message.toString());
+    };
+    Client.prototype.requestConnection = function (from) {
+        if (this.status == ClientStatus.Ready) {
+            this.status = ClientStatus.Connecting;
+            this.sendMessage(message_1.MessageType.ConnectionRequest, from.uuid);
+            return true;
+        }
+        else {
+            return false;
+        }
+    };
+    Client.prototype.acceptConnection = function (from) {
+        if (this.status == ClientStatus.Connecting) {
+            this.sendMessage(message_1.MessageType.ConnectionAccept, from.uuid);
+            return true;
+        }
+        else {
+            return false;
+        }
+    };
+    Client.prototype.completeConnection = function (other) {
+        if (this.status == ClientStatus.Connecting) {
+            this.status = ClientStatus.Connected;
+            this.connectedClient = other;
+            return true;
+        }
+        else {
+            return false;
+        }
     };
     Client.prototype.closeConnection = function () {
         if (this.status == ClientStatus.Connecting || this.status == ClientStatus.Connected) {
@@ -113,38 +154,4 @@ var Client = /** @class */ (function () {
     return Client;
 }());
 exports.Client = Client;
-var ClientRepository = /** @class */ (function () {
-    function ClientRepository() {
-        this.clients = [];
-    }
-    Object.defineProperty(ClientRepository.prototype, "length", {
-        get: function () {
-            return this.clients.length;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    ClientRepository.prototype.add = function (client) {
-        this.clients.push(client);
-    };
-    ClientRepository.prototype.remove = function (clientToRemove) {
-        var newClients = [];
-        for (var _i = 0, _a = this.clients; _i < _a.length; _i++) {
-            var client = _a[_i];
-            if (client != clientToRemove)
-                newClients.push(client);
-        }
-        this.clients = newClients;
-    };
-    ClientRepository.prototype.findByUuid = function (uuid) {
-        for (var _i = 0, _a = this.clients; _i < _a.length; _i++) {
-            var client = _a[_i];
-            if (client.uuid == uuid)
-                return client;
-        }
-        return null;
-    };
-    return ClientRepository;
-}());
-exports.ClientRepository = ClientRepository;
 //# sourceMappingURL=client.js.map

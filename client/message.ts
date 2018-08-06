@@ -23,10 +23,10 @@ export enum MessageType {
 export default class Message {
     public destination: string | null;
 
-    constructor(public type: MessageType, destination: Client | string | null, public content: any) {
+    constructor(public type: MessageType, destination: string | null, public content: any) {
 
         if (destination)
-            this.destination = destination instanceof Client ? destination.uuid : destination;
+            this.destination = destination;
     }
 
     public toString() {

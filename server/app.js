@@ -4,7 +4,7 @@ var websocket_1 = require("websocket");
 var http = require("http");
 var uuid_1 = require("uuid");
 var client_1 = require("./client");
-var clients = new client_1.ClientRepository();
+var client_repository_1 = require("./client_repository");
 // Start server
 var server = http.createServer(function (request, response) {
     console.log((new Date()) + ' Received request for ' + request.url);
@@ -25,23 +25,13 @@ wsServer.on('request', function (request) {
     var client = new client_1.Client(id, connection);
     client.onConnected = handleClientConnected;
     client.onDisconnected = handleClientDisconnected;
-    client.onQueueMessage = handleClientQueueMessage;
 });
 function handleClientConnected(client) {
-    clients.add(client);
-    console.log("Connected clients:", clients.length);
+    client_repository_1.clientsRepository.add(client);
+    console.log("Connected clients:", client_repository_1.clientsRepository.length);
 }
 function handleClientDisconnected(client) {
-    clients.remove(client);
-    console.log("Connected clients:", clients.length);
-}
-function handleClientQueueMessage(from, to, type, content) {
-    var client;
-    if (to instanceof client_1.Client)
-        client = to;
-    else
-        client = clients.findByUuid(to);
-    if (client)
-        client.sendMessage(type, content);
+    client_repository_1.clientsRepository.remove(client);
+    console.log("Connected clients:", client_repository_1.clientsRepository.length);
 }
 //# sourceMappingURL=app.js.map

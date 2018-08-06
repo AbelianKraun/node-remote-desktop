@@ -1,0 +1,3 @@
+D:\Projects\remotedesktop\client\obj\Debug\Client.njsprojAssemblyReference.cache
+D:\Projects\remotedesktop\client\obj\Debug\Client.njsproj.CoreCompileInputs.cache
+D:\Projects\remotedesktop\client\bin\Microsoft.NodejsTools.WebRole.dll
