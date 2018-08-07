@@ -12,7 +12,7 @@ export enum MessageType {
     MouseEvent,
 
     NextFrameData,
-    FrameReceived,
+    FrameRequest,
 
     Success,
     Error,

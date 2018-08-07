@@ -69,6 +69,7 @@ export class Client {
 
     private handleUTFMessage(message: Message) {
         this.log(JSON.stringify(message));
+        let target: Client | null = null;
 
         switch (message.type) {
             case MessageType.ConnectionRequest:
@@ -76,7 +77,7 @@ export class Client {
 
                     // Check target
                     let target = clientsRepository.findByClientId(message.content.id);
-                    if (target && target.requestConnection(this, message.content.pwd))
+                    if (target && target != this && target.requestConnection(this, message.content.pwd))
                         this.status = ClientStatus.Connecting;
                     else {
                         this.sendMessage(MessageType.Error, "Target busy or not available");
@@ -124,6 +125,24 @@ export class Client {
                     this.sendMessage(MessageType.Error, "Client not connected to any destination or not ready");
                 }
                 break;
+            case MessageType.FrameRequest:
+                target = clientsRepository.findByUuid(message.content);
+                if (target) {
+                    target.requestFrame(this);
+                } else {
+                    this.sendMessage(MessageType.Error, "Target busy or not available");
+                    this.closeConnection();
+                }
+                break;
+            case MessageType.NextFrameData:
+                target = clientsRepository.findByUuid(message.content);
+                if (target) {
+                    target.setNextFrameData(this, { x: message.content.x, y: message.content.y, w: message.content.y, h: message.content.h });
+                } else {
+                    this.sendMessage(MessageType.Error, "Target busy or not available");
+                    this.closeConnection();
+                }
+                break;
         }
     }
 
@@ -162,6 +181,8 @@ export class Client {
         if (this.status == ClientStatus.Connecting) {
             this.status = ClientStatus.Connected;
             this.connectedClient = other;
+            this.sendMessage(MessageType.ConnectionCompleted, other.uuid);
+
 
             return true;
         } else {
@@ -186,6 +207,18 @@ export class Client {
             return true;
         } else {
             return false;
+        }
+    }
+
+    public requestFrame(from: Client) {
+        if (this.status == ClientStatus.Connected) {
+            this.sendMessage(MessageType.FrameRequest, from.uuid);
+        }
+    }
+
+    public setNextFrameData(from: Client, data: any) {
+        if (this.status == ClientStatus.Connected) {
+            this.sendMessage(MessageType.NextFrameData, { from: from.uuid, x: data.x, y: data.y, w: data.w, h: data.h });
         }
     }
 

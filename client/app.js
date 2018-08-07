@@ -2,22 +2,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var electron_1 = require("electron");
 var path = require("path");
-var bindings_1 = require("./bindings");
 var client_1 = require("./client");
 // Capture device
-var screenCapturer = new bindings_1.default.Vector();
 var mainWindow = null;
 var client = new client_1.Client();
-// Init device
-if (!screenCapturer.initDevice()) {
-    console.log("Init device failed.");
-    electron_1.app.quit();
-}
 // Create main window
 electron_1.app.on('ready', createWindow);
 electron_1.app.on("before-quit", function () {
-    if (screenCapturer)
-        screenCapturer.releaseDevice();
+    if (client)
+        client.disconnect();
 });
 function createWindow() {
     var startUrl = path.resolve('./content/index.html');
@@ -29,6 +22,10 @@ function createWindow() {
 client.onReady = function (id, pwd) {
     if (mainWindow)
         mainWindow.webContents.send("clientReady", { id: id, pwd: pwd });
+};
+client.onSetNextFrameData = function (frameData) {
+    if (mainWindow)
+        mainWindow.webContents.send("nextFrameData", frameData);
 };
 // DOM events
 electron_1.ipcMain.on("domReady", function () {

@@ -53,12 +53,13 @@ var Client = /** @class */ (function () {
     };
     Client.prototype.handleUTFMessage = function (message) {
         this.log(JSON.stringify(message));
+        var target = null;
         switch (message.type) {
             case message_1.MessageType.ConnectionRequest:
                 if (this.status == ClientStatus.Ready) {
                     // Check target
-                    var target = client_repository_1.clientsRepository.findByClientId(message.content.id);
-                    if (target && target.requestConnection(this, message.content.pwd))
+                    var target_1 = client_repository_1.clientsRepository.findByClientId(message.content.id);
+                    if (target_1 && target_1 != this && target_1.requestConnection(this, message.content.pwd))
                         this.status = ClientStatus.Connecting;
                     else {
                         this.sendMessage(message_1.MessageType.Error, "Target busy or not available");
@@ -72,9 +73,9 @@ var Client = /** @class */ (function () {
             case message_1.MessageType.ConnectionAccept:
                 if (this.status == ClientStatus.Connecting) {
                     // Check target
-                    var target = client_repository_1.clientsRepository.findByUuid(message.content);
-                    if (target)
-                        target.acceptConnection(this);
+                    var target_2 = client_repository_1.clientsRepository.findByUuid(message.content);
+                    if (target_2)
+                        target_2.acceptConnection(this);
                     else {
                         this.sendMessage(message_1.MessageType.Error, "Target busy or not available");
                         this.closeConnection();
@@ -87,10 +88,10 @@ var Client = /** @class */ (function () {
             case message_1.MessageType.ConnectionCompleted:
                 if (this.status == ClientStatus.Connecting) {
                     // Check target
-                    var target = client_repository_1.clientsRepository.findByUuid(message.content);
-                    if (target && target.completeConnection(this)) {
-                        this.completeConnection(target);
-                        this.log("Connection estabilished. From " + this.clientId + " to " + target.clientId);
+                    var target_3 = client_repository_1.clientsRepository.findByUuid(message.content);
+                    if (target_3 && target_3.completeConnection(this)) {
+                        this.completeConnection(target_3);
+                        this.log("Connection estabilished. From " + this.clientId + " to " + target_3.clientId);
                     }
                     else {
                         this.sendMessage(message_1.MessageType.Error, "Target busy or not available");
@@ -104,6 +105,26 @@ var Client = /** @class */ (function () {
             case message_1.MessageType.ConnectionClose:
                 if (!this.closeConnection()) {
                     this.sendMessage(message_1.MessageType.Error, "Client not connected to any destination or not ready");
+                }
+                break;
+            case message_1.MessageType.FrameRequest:
+                target = client_repository_1.clientsRepository.findByUuid(message.content);
+                if (target) {
+                    target.requestFrame(this);
+                }
+                else {
+                    this.sendMessage(message_1.MessageType.Error, "Target busy or not available");
+                    this.closeConnection();
+                }
+                break;
+            case message_1.MessageType.NextFrameData:
+                target = client_repository_1.clientsRepository.findByUuid(message.content);
+                if (target) {
+                    target.setNextFrameData(this, { x: message.content.x, y: message.content.y, w: message.content.y, h: message.content.h });
+                }
+                else {
+                    this.sendMessage(message_1.MessageType.Error, "Target busy or not available");
+                    this.closeConnection();
                 }
                 break;
         }
@@ -139,6 +160,7 @@ var Client = /** @class */ (function () {
         if (this.status == ClientStatus.Connecting) {
             this.status = ClientStatus.Connected;
             this.connectedClient = other;
+            this.sendMessage(message_1.MessageType.ConnectionCompleted, other.uuid);
             return true;
         }
         else {
@@ -159,6 +181,16 @@ var Client = /** @class */ (function () {
         }
         else {
             return false;
+        }
+    };
+    Client.prototype.requestFrame = function (from) {
+        if (this.status == ClientStatus.Connected) {
+            this.sendMessage(message_1.MessageType.FrameRequest, from.uuid);
+        }
+    };
+    Client.prototype.setNextFrameData = function (from, data) {
+        if (this.status == ClientStatus.Connected) {
+            this.sendMessage(message_1.MessageType.NextFrameData, { from: from.uuid, x: data.x, y: data.y, w: data.w, h: data.h });
         }
     };
     Client.prototype.log = function (message) {

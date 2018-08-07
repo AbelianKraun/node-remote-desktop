@@ -10,7 +10,7 @@ var MessageType;
     MessageType[MessageType["ConnectionClosed"] = 5] = "ConnectionClosed";
     MessageType[MessageType["MouseEvent"] = 6] = "MouseEvent";
     MessageType[MessageType["NextFrameData"] = 7] = "NextFrameData";
-    MessageType[MessageType["FrameReceived"] = 8] = "FrameReceived";
+    MessageType[MessageType["FrameRequest"] = 8] = "FrameRequest";
     MessageType[MessageType["Success"] = 9] = "Success";
     MessageType[MessageType["Error"] = 10] = "Error";
 })(MessageType = exports.MessageType || (exports.MessageType = {}));

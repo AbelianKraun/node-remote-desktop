@@ -11,8 +11,9 @@ var MessageType;
     MessageType[MessageType["MouseEvent"] = 6] = "MouseEvent";
     MessageType[MessageType["NextFrameData"] = 7] = "NextFrameData";
     MessageType[MessageType["FrameReceived"] = 8] = "FrameReceived";
-    MessageType[MessageType["Success"] = 9] = "Success";
-    MessageType[MessageType["Error"] = 10] = "Error";
+    MessageType[MessageType["FrameRequest"] = 9] = "FrameRequest";
+    MessageType[MessageType["Success"] = 10] = "Success";
+    MessageType[MessageType["Error"] = 11] = "Error";
 })(MessageType = exports.MessageType || (exports.MessageType = {}));
 var Message = /** @class */ (function () {
     function Message(type, content) {
