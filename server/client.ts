@@ -135,9 +135,18 @@ export class Client {
                 }
                 break;
             case MessageType.NextFrameData:
-                target = clientsRepository.findByUuid(message.content);
+                target = clientsRepository.findByUuid(message.content.to);
                 if (target) {
-                    target.setNextFrameData(this, { x: message.content.x, y: message.content.y, w: message.content.y, h: message.content.h });
+                    target.setNextFrameData(this, { x: message.content.x, y: message.content.y, w: message.content.w, h: message.content.h });
+                } else {
+                    this.sendMessage(MessageType.Error, "Target busy or not available");
+                    this.closeConnection();
+                }
+                break;
+            case MessageType.MouseEvent:
+                target = this.connectedClient; // TODO: Set a destination property in Message class
+                if (target) {
+                    target.mouseEvent(message.content);
                 } else {
                     this.sendMessage(MessageType.Error, "Target busy or not available");
                     this.closeConnection();
@@ -147,7 +156,8 @@ export class Client {
     }
 
     private handleBinaryMessage(message: Buffer) {
-
+        if (this.connectedClient)
+            this.connectedClient.sendFrame(message);
     }
 
     public sendMessage(type: MessageType, content?: any) {
@@ -220,6 +230,14 @@ export class Client {
         if (this.status == ClientStatus.Connected) {
             this.sendMessage(MessageType.NextFrameData, { from: from.uuid, x: data.x, y: data.y, w: data.w, h: data.h });
         }
+    }
+
+    public sendFrame(content: Buffer) {
+        this.connection.sendBytes(content);
+    }
+
+    public mouseEvent(e: any) {
+        this.sendMessage(MessageType.MouseEvent, e);
     }
 
     private log(message: any) {

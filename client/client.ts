@@ -1,13 +1,9 @@
-﻿import Message, { MessageType } from "./message";
+﻿import Message from "./message";
 import { client as WebSocketClient } from "websocket"
 import { setInterval } from "timers";
 import captureModule from "./bindings"
+import { MessageType, ClientStatus, MouseEventType } from "./models";
 
-export enum ClientStatus {
-    Disconnected,
-    Connected,
-    Ready,
-}
 
 export class Client {
 
@@ -25,8 +21,9 @@ export class Client {
     private nextFrameData: any = null;
 
     // Events
-    public onConnected: (client: Client) => void;
-    public onDisconnected: (client: Client) => void;
+    public onConnected: () => void;
+    public onDisconnected: () => void;
+    public onConnectionClosed: () => void;
     public onReady: (id: string, pwd: string) => void;
     public onFrameReceived: (content: Buffer, frameData: any) => void;
 
@@ -85,6 +82,11 @@ export class Client {
         this.sendMessage(MessageType.ConnectionRequest, { id, pwd });
     }
 
+    public closeConnection() {
+        this.sendMessage(MessageType.ConnectionClose);
+        this.cleanConnection();
+    }
+
     private handleDisconnection(reasonCode: number, description: string) {
         this.log("Client disconnected. (" + reasonCode + ", " + description + ")");
 
@@ -95,7 +97,7 @@ export class Client {
             this.screenCapturer.releaseDevice();
 
         if (this.onDisconnected)
-            this.onDisconnected(this);
+            this.onDisconnected();
 
         setTimeout(() => this.connect(), 10000);
     }
@@ -105,8 +107,8 @@ export class Client {
 
         switch (message.type) {
             case MessageType.Error:
-                this.connectedClient = null;
-
+                //this.connectedClient = null;
+                break;
             case MessageType.ClientReady:
                 this.status = ClientStatus.Ready;
                 this.clientId = message.content.id;
@@ -118,7 +120,6 @@ export class Client {
             case MessageType.ConnectionRequest:
                 this.host = false;
                 // Request is already authorized by server, so we don't need to check for pwd
-                this.connectedClient = message.content;
                 this.sendMessage(MessageType.ConnectionAccept, message.content); // Content contains the guid of the requester
                 break;
             case MessageType.ConnectionAccept:
@@ -138,6 +139,8 @@ export class Client {
                 break;
             case MessageType.ConnectionClosed:
                 this.cleanConnection();
+                if (this.onConnectionClosed)
+                    this.onConnectionClosed();
                 break;
             case MessageType.FrameRequest:
                 this.frameReceived = true;
@@ -145,10 +148,13 @@ export class Client {
             case MessageType.NextFrameData:
                 this.nextFrameData = message.content;
                 break;
+            case MessageType.MouseEvent:
+                this.handleMouseEvent(message.content);
+                break;
         }
     }
 
-    private cleanConnection() {
+    private cleanConnection = () =>  {
         this.status = ClientStatus.Ready;
         this.connectedClient = null;
         this.host = false;
@@ -156,7 +162,7 @@ export class Client {
         this.log("Connection cleaned.");
     }
 
-    private requestNextFrame() {
+    private requestNextFrame = () =>  {
 
         if (this.status != ClientStatus.Connected) {
             console.log("Requesting next frame but not connected. Clearing interval.");
@@ -166,7 +172,11 @@ export class Client {
         this.sendMessage(MessageType.FrameRequest, this.connectedClient);
     }
 
-    private sendFrame() {
+    private sendFrame = () =>  {
+
+        if (this.status != ClientStatus.Connected)
+            return;
+
         if (this.frameReceived) {
             let dirties = this.cache.filter(c => c.isDirty).sort(x => x.updated.getTime());
             let d = dirties.length > 0 ? dirties[0] : null;
@@ -205,7 +215,7 @@ export class Client {
         });
     }
 
-    private handleBinaryMessage(message: Buffer) {
+    private handleBinaryMessage = (message: Buffer) =>  {
         if (this.nextFrameData) {
 
             if (this.onFrameReceived)
@@ -215,14 +225,36 @@ export class Client {
         }
     }
 
-    public sendMessage(type: MessageType, content?: any) {
+    public sendMessage = (type: MessageType, content?: any) => {
         let message = new Message(type, content);
 
         if (this.connection && this.connection.connected)
             this.connection.sendUTF(message.toString());
     }
 
-    private log(message: any) {
+    public sendMouseEvent = (e: any) => {
+        this.sendMessage(MessageType.MouseEvent, e);
+    }
+
+    private handleMouseEvent = (e: any) => {
+
+        switch (e.type) {
+            case MouseEventType.MouseMove:
+                //if (this.screenCapturer)
+                    //this.screenCapturer.setMousePosition(e.x, e.y);
+                break;
+            case MouseEventType.MouseDown:
+                if (this.screenCapturer)
+                    this.screenCapturer.mouseDown(e.button);
+                break;
+            case MouseEventType.MouseUp:
+                if (this.screenCapturer)
+                    this.screenCapturer.mouseUp(e.button);
+                break;
+        }
+    }
+
+    private log = (message: any)  =>{
         console.log(message);
     }
 

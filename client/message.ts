@@ -1,22 +1,6 @@
 ﻿import { Client } from "./client";
+import { MessageType } from "./models";
 
-export enum MessageType {
-    ClientReady,
-
-    ConnectionRequest,
-    ConnectionAccept,
-    ConnectionCompleted,
-    ConnectionClose,
-    ConnectionClosed,
-
-    MouseEvent,
-
-    NextFrameData,
-    FrameRequest,
-
-    Success,
-    Error,
-}
 
 export default class Message {
     public destination: string | null;

@@ -46,12 +46,16 @@
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="content\remoteWindow.html" />
     <Content Include="tsconfig.json" />
     <TypeScriptCompile Include="app.ts" />
     <Content Include="content\index.html" />
     <Content Include="package.json" />
+    <TypeScriptCompile Include="models.ts" />
     <TypeScriptCompile Include="client.ts" />
+    <TypeScriptCompile Include="content\remoteWindow.ts" />
     <TypeScriptCompile Include="content\main.ts" />
+    <TypeScriptCompile Include="remoteWindow.ts" />
     <TypeScriptCompile Include="message.ts" />
   </ItemGroup>
   <ItemGroup>

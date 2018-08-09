@@ -118,9 +118,19 @@ var Client = /** @class */ (function () {
                 }
                 break;
             case message_1.MessageType.NextFrameData:
-                target = client_repository_1.clientsRepository.findByUuid(message.content);
+                target = client_repository_1.clientsRepository.findByUuid(message.content.to);
                 if (target) {
-                    target.setNextFrameData(this, { x: message.content.x, y: message.content.y, w: message.content.y, h: message.content.h });
+                    target.setNextFrameData(this, { x: message.content.x, y: message.content.y, w: message.content.w, h: message.content.h });
+                }
+                else {
+                    this.sendMessage(message_1.MessageType.Error, "Target busy or not available");
+                    this.closeConnection();
+                }
+                break;
+            case message_1.MessageType.MouseEvent:
+                target = this.connectedClient; // TODO: Set a destination property in Message class
+                if (target) {
+                    target.mouseEvent(message.content);
                 }
                 else {
                     this.sendMessage(message_1.MessageType.Error, "Target busy or not available");
@@ -130,6 +140,8 @@ var Client = /** @class */ (function () {
         }
     };
     Client.prototype.handleBinaryMessage = function (message) {
+        if (this.connectedClient)
+            this.connectedClient.sendFrame(message);
     };
     Client.prototype.sendMessage = function (type, content) {
         var message = new message_1.default(type, content);
@@ -192,6 +204,12 @@ var Client = /** @class */ (function () {
         if (this.status == ClientStatus.Connected) {
             this.sendMessage(message_1.MessageType.NextFrameData, { from: from.uuid, x: data.x, y: data.y, w: data.w, h: data.h });
         }
+    };
+    Client.prototype.sendFrame = function (content) {
+        this.connection.sendBytes(content);
+    };
+    Client.prototype.mouseEvent = function (e) {
+        this.sendMessage(message_1.MessageType.MouseEvent, e);
     };
     Client.prototype.log = function (message) {
         console.log((this.clientId || this.uuid) + ": " + message);

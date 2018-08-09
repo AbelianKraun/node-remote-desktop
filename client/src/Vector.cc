@@ -43,7 +43,8 @@ NAN_MODULE_INIT(Vector::Init)
 	Nan::SetPrototypeMethod(ctor, "releaseDevice", ReleaseDevice);
 	Nan::SetPrototypeMethod(ctor, "setMousePosition", SetMousePosition);
 	Nan::SetPrototypeMethod(ctor, "getMousePosition", GetMousePosition);
-	Nan::SetPrototypeMethod(ctor, "mouseClick", MouseClick);
+	Nan::SetPrototypeMethod(ctor, "mouseUp", MouseUp);
+	Nan::SetPrototypeMethod(ctor, "mouseDown", MouseDown);
 
 	target->Set(Nan::New("Vector").ToLocalChecked(), ctor->GetFunction());
 }
@@ -211,9 +212,20 @@ NAN_METHOD(Vector::SetMousePosition)
 	SetCursorPos(x, y);
 }
 
-NAN_METHOD(Vector::MouseClick)
+NAN_METHOD(Vector::MouseDown)
 {
-	LeftClick();
+	INPUT Input = {0}; // Create our input.
+	Input.type = INPUT_MOUSE;				 // Let input know we are using the mouse.
+	Input.mi.dwFlags = MOUSEEVENTF_LEFTDOWN; // We are setting left mouse button down.
+	SendInput(1, &Input, sizeof(INPUT));	 // Send the input.
+}
+
+NAN_METHOD(Vector::MouseUp)
+{
+	INPUT Input = {0}; // Create our input.
+	Input.type = INPUT_MOUSE;			   // Let input know we are using the mouse.
+	Input.mi.dwFlags = MOUSEEVENTF_LEFTUP; // We are setting left mouse button up.
+	SendInput(1, &Input, sizeof(INPUT));   // Send the input.
 }
 
 NAN_GETTER(Vector::HandleGetters)
@@ -254,22 +266,4 @@ BOOL CALLBACK MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMoni
 
 	a++;
 	return true;
-}
-
-//
-// Desc    : Clicks the left mouse button down and releases it.
-// Returns : Nothing.
-//
-void LeftClick()
-{
-	INPUT Input = {0}; // Create our input.
-
-	Input.type = INPUT_MOUSE;				 // Let input know we are using the mouse.
-	Input.mi.dwFlags = MOUSEEVENTF_LEFTDOWN; // We are setting left mouse button down.
-	SendInput(1, &Input, sizeof(INPUT));	 // Send the input.
-
-	ZeroMemory(&Input, sizeof(INPUT));	 // Fills a block of memory with zeros.
-	Input.type = INPUT_MOUSE;			   // Let input know we are using the mouse.
-	Input.mi.dwFlags = MOUSEEVENTF_LEFTUP; // We are setting left mouse button up.
-	SendInput(1, &Input, sizeof(INPUT));   // Send the input.
 }
